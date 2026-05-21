@@ -24,11 +24,12 @@ object NetworkModule {
         @Provides
         @Singleton
         fun provideOkHttpClient(): OkHttpClient  {
+                val interceptorLevel = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BODY
+                        else HttpLoggingInterceptor.Level.NONE
                 return OkHttpClient.Builder()
                         .addInterceptor(HttpLoggingInterceptor().apply {
-                                level = HttpLoggingInterceptor.Level.BODY
-                        })
-                        .build()
+                        level = interceptorLevel
+                        }).build()
         }
 
         @Provides
