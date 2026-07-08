@@ -53,13 +53,13 @@ This project aims to follow the MVVM (Model-View-ViewModel) architecture pattern
 
 1.  **Clone the repository:**
     ```bash
-    git clone [https://github.com/andrev91/WeatherDemo.git](https://github.com/andrev91/WeatherDemo.git)
-    cd WeatherDemo
+    git clone [https://github.com/andrev91/WeatherLite.git](https://github.com/andrev91/WeatherLite.git)
+    cd WeatherLite
     ```
 2.  **Open in Android Studio:**
     * Open Android Studio.
     * Click on "Open an Existing Project".
-    * Navigate to the cloned `WeatherDemo` directory and select it.
+    * Navigate to the cloned `WeatherLite` directory and select it.
 3.  **API Key:** Follow the instructions in the [API Key Setup](#-api-key-setup) section below.
 4.  **Build and Run:**
     * Let Android Studio sync the Gradle files.

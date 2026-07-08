@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">weather app demo</string>
+    <string name="app_name">WeatherLite</string>
 
     <!-- scaffold -->
     <string name="scaffold_weather_app_label">Weather App</string>
