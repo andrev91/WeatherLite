@@ -19,17 +19,17 @@ plugins {
 }
 
 android {
-    namespace = "com.example.adventure"
+    namespace = "com.tehuberz.weather.lite"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.example.adventure"
+        applicationId = "com.tehuberz.weather.lite"
         minSdk = 28
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
 
-        testInstrumentationRunner = "com.example.adventure.TestRunner"
+        testInstrumentationRunner = "com.tehuberz.weather.lite.TestRunner"
 
         val accuApiKey = getApiKey("ACCUWEATHER_API_KEY")
         val openWeatherApiKey = getApiKey("OPEN_WEATHER_API_KEY")
