@@ -24,6 +24,7 @@ import com.tehuberz.weather.lite.ui.state.LocationType.*
 import com.tehuberz.weather.lite.ui.state.WeatherDataState
 import com.tehuberz.weather.lite.ui.state.WeatherUiState
 import com.tehuberz.weather.lite.util.UiText
+import com.tehuberz.weather.lite.util.UnixTimestampToLocal
 import com.tehuberz.weather.lite.worker.WeatherWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -352,7 +353,7 @@ class WeatherViewModel @Inject constructor(
     private fun mapResponseToDisplayData(response: OpenWeatherResponseDTO): WeatherDisplayData {
         val formattedTempFahrenheit = "${response.main.temp}°F"
         val formattedTempCelsius = String.format("%.2f°C", (response.main.temp - 32) * 5 / 9)
-        val observedTime = "N/A" // OpenWeather does not provide local observation time
+        val observedTime = UnixTimestampToLocal.execute(response.dt)
         val icon = response.weather.firstOrNull()?.icon
         val weatherIconUrl = if (icon.isNullOrBlank()) {
             null

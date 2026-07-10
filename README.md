@@ -1,4 +1,4 @@
-# OpenWeather Demo Android App
+# WeatherLite Android App (OpenWeather)
 
 [![Kotlin Version](https://img.shields.io/badge/Kotlin-2.1.10-blue.svg)](https://kotlinlang.org)
 [![API](https://img.shields.io/badge/API-OpenWeather-orange.svg)](https://openweathermap.org/api)
