@@ -242,6 +242,10 @@ class WeatherViewModel @Inject constructor(
     }
 
     fun searchLocation() {
+        if (_uiState.value.locationState.selectedState == null || _uiState.value.locationState.selectedCity == null) {
+            _uiState.update { it.copy(error = UiText.DynamicString("Please select a state and city.")) }
+            return
+        }
         if (_uiState.value.weatherState.isLoadingWeather) return
         updateWeatherState { currentState -> currentState.copy(displayData = null, isLoadingWeather = true) }
         _uiState.update { it.copy(error = null) }
