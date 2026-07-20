@@ -8,6 +8,7 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import android.util.Log
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -58,7 +59,9 @@ object NetworkModule {
                 if (apiKey.isBlank()) {
                         throw IllegalArgumentException("API Key is not set in BuildConfig. Please add it to your local.properties or gradle file.")
                 }
-                println("Using API Key: ...${apiKey.takeLast(4)}") // Avoid logging full key
+                if (BuildConfig.DEBUG) {
+                        Log.d("NetworkModule", "Using API Key: ...${apiKey.takeLast(4)}") // Avoid logging full key
+                }
                 return apiKey
         }
 
