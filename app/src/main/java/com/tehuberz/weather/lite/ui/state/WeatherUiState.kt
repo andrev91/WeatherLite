@@ -5,7 +5,7 @@ import com.tehuberz.weather.lite.data.local.model.Bookmark
 import com.tehuberz.weather.lite.data.model.State
 import com.tehuberz.weather.lite.data.model.TemperatureUnit
 import com.tehuberz.weather.lite.util.UiText
-import com.tehuberz.weather.lite.viewmodel.WeatherDisplayData
+import com.tehuberz.weather.lite.ui.model.WeatherDataPO
 
 data class WeatherUiState(
     val locationState : LocationSelectionState = LocationSelectionState(),
@@ -30,6 +30,6 @@ data class LocationSelectionState(
 
 data class WeatherDataState(
     val isLoadingWeather: Boolean = false,
-    val displayData: WeatherDisplayData? = null,
+    val weatherContent: WeatherDataPO? = null,
     val temperatureUnit: TemperatureUnit = TemperatureUnit.CELSIUS,
 )

@@ -62,7 +62,7 @@ import com.tehuberz.weather.lite.ui.theme.AdventureTheme
 import com.tehuberz.weather.lite.viewmodel.WeatherViewModel
 import com.tehuberz.weather.lite.data.model.TemperatureUnit
 import com.tehuberz.weather.lite.util.UiText
-import com.tehuberz.weather.lite.viewmodel.WeatherDisplayData
+import com.tehuberz.weather.lite.ui.model.WeatherDataPO
 
 const val TAG_LOCATION_DROPDOWN = "LocationDropdown"
 
@@ -153,19 +153,19 @@ fun WeatherScreenContent(uiState: WeatherUiState,
             CircularProgressIndicator(modifier = Modifier.testTag(TAG_PROGRESS))
             Text(text = stringResource(R.string.weather_screen_loading_text), modifier = Modifier.padding(8.dp))
         }
-        else if (uiState.weatherState.displayData == null && uiState.error == null) {
+        else if (uiState.weatherState.weatherContent == null && uiState.error == null) {
             Text(text = stringResource(R.string.weather_screen_weather_location_data_text), modifier = Modifier.padding(8.dp))
         } else if (uiState.error != null) {
             Text(text = uiState.error.asString(), color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag(TAG_ERROR_TEXT))
             Spacer(modifier = Modifier.height(8.dp))
         }
-        if (uiState.weatherState.displayData != null) {
-            WeatherDetails(data = uiState.weatherState.displayData, unit = uiState.weatherState.temperatureUnit)
+        if (uiState.weatherState.weatherContent != null) {
+            WeatherDetails(data = uiState.weatherState.weatherContent, unit = uiState.weatherState.temperatureUnit)
             Spacer(modifier = Modifier.height(8.dp))
         }
         Row {
             Button(onClick = onRefreshClicked, modifier = Modifier.testTag(TAG_REFRESH_BUTTON), elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)) {
-                Text(text = if (uiState.weatherState.displayData != null) stringResource(R.string.weather_screen_refresh_weather_data_label)
+                Text(text = if (uiState.weatherState.weatherContent != null) stringResource(R.string.weather_screen_refresh_weather_data_label)
                 else stringResource(R.string.weather_screen_fetch_weather_data_label))
             }
             if (uiState.locationState.selectedState != null && uiState.locationState.selectedCity != null) {
@@ -249,7 +249,7 @@ fun <T> SearchableDropDown(
 }
 
 @Composable
-fun WeatherDetails(data: WeatherDisplayData, unit : TemperatureUnit = TemperatureUnit.CELSIUS) {
+fun WeatherDetails(data: WeatherDataPO, unit : TemperatureUnit = TemperatureUnit.CELSIUS) {
     Card(elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)) {
         Column(modifier = Modifier.padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -318,7 +318,7 @@ fun PreviewWeatherScreenContent_Success() {
                 uiState = WeatherUiState(
                     weatherState = WeatherDataState(
                         isLoadingWeather = false,
-                        displayData = WeatherDisplayData(
+                        weatherContent = WeatherDataPO(
                             temperatureFahrenheit = UiText.DynamicString("77°F"),
                             temperatureCelsius = UiText.DynamicString("25°C"),
                             weatherDescription = UiText.DynamicString("Sunny"),
@@ -350,7 +350,7 @@ fun PreviewWeatherScreenContent_Success_Landscape() {
                 uiState = WeatherUiState(
                     weatherState = WeatherDataState(
                         isLoadingWeather = false,
-                        displayData = WeatherDisplayData(
+                        weatherContent = WeatherDataPO(
                             temperatureFahrenheit = UiText.DynamicString("77°F"),
                             temperatureCelsius = UiText.DynamicString("25°C"),
                             weatherDescription = UiText.DynamicString("Sunny"),

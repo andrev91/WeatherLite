@@ -7,7 +7,6 @@ import androidx.work.OneTimeWorkRequest
 import androidx.work.Operation
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
-import androidx.work.workDataOf
 import app.cash.turbine.test
 import com.tehuberz.weather.lite.data.model.State
 import com.tehuberz.weather.lite.data.model.StateCities
@@ -15,8 +14,6 @@ import com.tehuberz.weather.lite.data.repository.LocationRepository
 import com.tehuberz.weather.lite.data.repository.SettingsRepository
 import com.tehuberz.weather.lite.ui.state.LocationType
 import com.tehuberz.weather.lite.viewmodel.WeatherViewModel
-import com.tehuberz.weather.lite.worker.USLocationWorker.Companion.LOCATION_JSON
-import com.tehuberz.weather.lite.worker.USLocationWorker.Companion.OUTPUT_SUCCESS
 import junit.framework.TestCase.assertFalse
 import junit.framework.TestCase.assertNull
 import junit.framework.TestCase.assertTrue
@@ -24,13 +21,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
-import kotlinx.serialization.json.Json
 import org.junit.After
 import org.junit.Before
 import org.junit.Rule
@@ -109,7 +104,7 @@ class WeatherTest {
             assertFalse("isLoadingWeatherData be false initially", initialState.weatherState.isLoadingWeather)
             assertFalse("isLoadingCityData be false initially", initialState.locationState.isLoadingCities)
             assertFalse("isLoadingStateList will be false after load", initialState.locationState.isLoadingStates)
-            assertNull("weatherDisplayData should be null initially", initialState.weatherState.displayData)
+            assertNull("weatherDisplayData should be null initially", initialState.weatherState.weatherContent)
             assertNull("selectedState should be null initially", initialState.locationState.selectedState)
             assertNull("selectedCity should be null initially", initialState.locationState.selectedCity)
             assertNull("error should be null initially", initialState.error)

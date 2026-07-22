@@ -17,6 +17,7 @@ import com.tehuberz.weather.lite.data.local.model.Bookmark
 import com.tehuberz.weather.lite.data.network.model.OpenWeatherResponseDTO
 import com.tehuberz.weather.lite.data.repository.LocationRepository
 import com.tehuberz.weather.lite.data.repository.SettingsRepository
+import com.tehuberz.weather.lite.ui.model.WeatherDataPO
 import com.tehuberz.weather.lite.ui.state.BookmarkState
 import com.tehuberz.weather.lite.ui.state.LocationSelectionState
 import com.tehuberz.weather.lite.ui.state.LocationType
@@ -45,14 +46,6 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import java.util.UUID
 import javax.inject.Inject
-
-data class WeatherDisplayData(
-    val temperatureFahrenheit : UiText,
-    val temperatureCelsius : UiText,
-    val weatherDescription: UiText,
-    val weatherIcon: String? = null,
-    val observedAt : UiText,
-)
 
 @HiltViewModel
 class WeatherViewModel @Inject constructor(
@@ -150,7 +143,7 @@ class WeatherViewModel @Inject constructor(
                     isLoadingCities = false, selectedCity = null, filteredCities = emptyList(), citySearchQuery = TextFieldValue("")) }
             }
         }
-        updateWeatherState { currentState -> currentState.copy(displayData = null) }
+        updateWeatherState { currentState -> currentState.copy(weatherContent = null) }
         _uiState.update { it.copy(error = null) }
     }
 
@@ -164,7 +157,7 @@ class WeatherViewModel @Inject constructor(
                 updateLocationState { currentState -> currentState.copy(selectedState = state, isLoadingStates = false
                     , isLoadingCities = true, selectedCity = null, availableCities = null,
                     stateSearchQuery = TextFieldValue(state.name), citySearchQuery = TextFieldValue("")) }
-                updateWeatherState { currentState -> currentState.copy(displayData = null) }
+                updateWeatherState { currentState -> currentState.copy(weatherContent = null) }
                 _uiState.update { it.copy(error = null) }
 
                 viewModelScope.launch {
@@ -176,7 +169,7 @@ class WeatherViewModel @Inject constructor(
                 searchJob?.cancel()
                 if (location == _uiState.value.locationState.selectedCity) return
                 updateLocationState { currentState -> currentState.copy(selectedCity = location, citySearchQuery = TextFieldValue(location)) }
-                updateWeatherState { currentState -> currentState.copy(displayData = null) }
+                updateWeatherState { currentState -> currentState.copy(weatherContent = null) }
                 _uiState.update { it.copy(error = null) }
             }
         }
@@ -222,7 +215,7 @@ class WeatherViewModel @Inject constructor(
     }
 
     private fun fetchWeather(lat: Double, lon: Double) {
-        updateWeatherState { currentState -> currentState.copy(displayData = null) }
+        updateWeatherState { currentState -> currentState.copy(weatherContent = null) }
         _uiState.update { it.copy(error = null) }
         val weatherRequest = OneTimeWorkRequestBuilder<WeatherWorker>()
             .setInputData(
@@ -247,7 +240,7 @@ class WeatherViewModel @Inject constructor(
             return
         }
         if (_uiState.value.weatherState.isLoadingWeather) return
-        updateWeatherState { currentState -> currentState.copy(displayData = null, isLoadingWeather = true) }
+        updateWeatherState { currentState -> currentState.copy(weatherContent = null, isLoadingWeather = true) }
         _uiState.update { it.copy(error = null) }
         val state = uiState.value.locationState.selectedState?.name ?: return
         val city = uiState.value.locationState.selectedCity ?: ""
@@ -299,7 +292,7 @@ class WeatherViewModel @Inject constructor(
                             val response = Json.decodeFromString<OpenWeatherResponseDTO>(weatherJson)
                             updateWeatherState { currentState ->
                                 currentState.copy(
-                                    displayData = mapResponseToDisplayData(response),
+                                    weatherContent = mapResponseToWeatherDataPO(response),
                                     isLoadingWeather = false
                                 )
                             }
@@ -354,7 +347,7 @@ class WeatherViewModel @Inject constructor(
     }
 
     @SuppressLint("DefaultLocale")
-    private fun mapResponseToDisplayData(response: OpenWeatherResponseDTO): WeatherDisplayData {
+    private fun mapResponseToWeatherDataPO(response: OpenWeatherResponseDTO): WeatherDataPO {
         val formattedTempFahrenheit = "${response.main.temp}°F"
         val formattedTempCelsius = String.format("%.2f°C", (response.main.temp - 32) * 5 / 9)
         val observedTime = UnixTimestampToLocal.execute(response.dt)
@@ -365,7 +358,7 @@ class WeatherViewModel @Inject constructor(
             "https://openweathermap.org/img/wn/$icon@2x.png"
         }
 
-        return WeatherDisplayData(
+        return WeatherDataPO(
             weatherDescription = UiText.DynamicString(response.weather.firstOrNull()?.description ?: "No description"),
             weatherIcon = weatherIconUrl,
             temperatureFahrenheit = UiText.DynamicString(formattedTempFahrenheit),
