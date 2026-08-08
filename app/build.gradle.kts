@@ -20,7 +20,7 @@ plugins {
 
 android {
     namespace = "com.tehuberz.weather.lite"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.tehuberz.weather.lite"
@@ -54,6 +54,7 @@ android {
     }
     kotlinOptions {
         jvmTarget = "17"
+        freeCompilerArgs = freeCompilerArgs + "-Xexplicit-backing-fields"
     }
     buildFeatures {
         compose = true
