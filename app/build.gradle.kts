@@ -26,8 +26,8 @@ android {
         applicationId = "com.tehuberz.weather.lite"
         minSdk = 28
         targetSdk = 37
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.01"
 
         testInstrumentationRunner = "com.tehuberz.weather.lite.TestRunner"
 
