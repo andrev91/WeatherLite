@@ -11,16 +11,32 @@ fun getApiKey(propertyKey: String): String {
 
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.jetbrains.kotlin.android)
     alias(libs.plugins.jetbrains.kotlin.compose)
     alias(libs.plugins.jetbrains.kotlin.serialization)
-    alias(libs.plugins.hilt.android)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.hilt.android)
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+        freeCompilerArgs.addAll(
+            "-opt-in=kotlin.RequiresOptIn",
+            "-Xexplicit-backing-fields",
+            "-XXLanguage:+ExplicitBackingFields"
+        )
+    }
 }
 
 android {
     namespace = "com.tehuberz.weather.lite"
     compileSdk = 37
+
+    sourceSets {
+        getByName("main") {
+            java.directories.add("src/main/assets")
+        }
+    }
 
     defaultConfig {
         applicationId = "com.tehuberz.weather.lite"
@@ -52,21 +68,10 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions {
-        jvmTarget = "17"
-        freeCompilerArgs = freeCompilerArgs + "-Xexplicit-backing-fields"
-    }
     buildFeatures {
         compose = true
         dataBinding = true
         buildConfig = true
-    }
-    // composeOptions removed as kotlinCompilerExtensionVersion is deprecated
-
-    sourceSets {
-        getByName("main") {
-            assets.srcDirs("src/main/assets")
-        }
     }
 }
 
