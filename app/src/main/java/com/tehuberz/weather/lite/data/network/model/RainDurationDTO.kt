@@ -6,5 +6,5 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class RainDurationDTO(
     @SerialName("1h")
-    val oneHour: Double? = null
+    val oneHour: Double? = null,
 )

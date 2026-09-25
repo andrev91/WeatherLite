@@ -53,16 +53,16 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.tehuberz.weather.lite.R
 import com.tehuberz.weather.lite.data.model.State
+import com.tehuberz.weather.lite.data.model.TemperatureUnit
+import com.tehuberz.weather.lite.ui.model.WeatherDataPO
 import com.tehuberz.weather.lite.ui.scaffold.WeatherScaffold
 import com.tehuberz.weather.lite.ui.state.LocationSelectionState
 import com.tehuberz.weather.lite.ui.state.LocationType
 import com.tehuberz.weather.lite.ui.state.WeatherDataState
 import com.tehuberz.weather.lite.ui.state.WeatherUiState
 import com.tehuberz.weather.lite.ui.theme.AdventureTheme
-import com.tehuberz.weather.lite.viewmodel.WeatherViewModel
-import com.tehuberz.weather.lite.data.model.TemperatureUnit
 import com.tehuberz.weather.lite.util.UiText
-import com.tehuberz.weather.lite.ui.model.WeatherDataPO
+import com.tehuberz.weather.lite.viewmodel.WeatherViewModel
 
 const val TAG_LOCATION_DROPDOWN = "LocationDropdown"
 
@@ -78,7 +78,7 @@ const val TAG_REFRESH_BUTTON = "RefreshButton"
 @Composable
 fun WeatherScreen(
     viewModel: WeatherViewModel = hiltViewModel(),
-    onSettingsClick: () -> Unit
+    onSettingsClick: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -95,7 +95,7 @@ fun WeatherScreen(
         snackBarHostState = snackbarHostState,
         onRemoveBookmark = { viewModel.removeBookmark(it) },
         onLoadBookmark = { viewModel.loadBookmark(it) },
-        onSettingsClick = onSettingsClick
+        onSettingsClick = onSettingsClick,
     ) { _ ->
         WeatherScreenContent(
             uiState = uiState,
@@ -103,25 +103,30 @@ fun WeatherScreen(
             onDropdownClear = { viewModel.clearDropdownSelection(it) },
             onDropdownSelected = { locationType, location -> viewModel.setDropdownSelection(locationType, location) },
             onRefreshClicked = { viewModel.searchLocation() },
-            onAddBookmark = { viewModel.addBookmark() }
+            onAddBookmark = { viewModel.addBookmark() },
         )
     }
 }
 
 @Composable
-fun WeatherScreenContent(uiState: WeatherUiState,
-                         onDropdownSearch: (LocationType, TextFieldValue) -> Unit,
-                         onDropdownClear : (LocationType) -> Unit,
-                         onDropdownSelected : (LocationType, String) -> Unit,
-                         onRefreshClicked: () -> Unit,
-                         onAddBookmark: () -> Unit) {
+fun WeatherScreenContent(
+    uiState: WeatherUiState,
+    onDropdownSearch: (LocationType, TextFieldValue) -> Unit,
+    onDropdownClear: (LocationType) -> Unit,
+    onDropdownSelected: (LocationType, String) -> Unit,
+    onRefreshClicked: () -> Unit,
+    onAddBookmark: () -> Unit,
+) {
     val scrollState = rememberScrollState()
-    Column(modifier = Modifier
-        .fillMaxSize()
-        .verticalScroll(scrollState)
-        .padding(16.dp),
+    Column(
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .verticalScroll(scrollState)
+                .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center) {
+        verticalArrangement = Arrangement.Center,
+    ) {
         Text(stringResource(R.string.weather_screen_open_weather_data_label), style = MaterialTheme.typography.headlineMedium)
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -131,9 +136,9 @@ fun WeatherScreenContent(uiState: WeatherUiState,
             options = uiState.locationState.filteredStates.ifEmpty { uiState.locationState.availableStates!! },
             onClear = { onDropdownClear(LocationType.STATE) },
             searchQuery = uiState.locationState.stateSearchQuery,
-            onSearchQueryChanged = { onDropdownSearch(LocationType.STATE, it) } ,
+            onSearchQueryChanged = { onDropdownSearch(LocationType.STATE, it) },
             isSelected = uiState.locationState.selectedState != null,
-            onOptionSelected = { onDropdownSelected(LocationType.STATE, it) }
+            onOptionSelected = { onDropdownSelected(LocationType.STATE, it) },
         ) { it.name }
         Spacer(Modifier.height(8.dp))
         if (uiState.locationState.selectedState != null && !uiState.locationState.availableCities.isNullOrEmpty()) {
@@ -141,19 +146,20 @@ fun WeatherScreenContent(uiState: WeatherUiState,
                 label = stringResource(R.string.weather_screen_city_label),
                 testTag = TAG_CITY_DROPDOWN,
                 options = uiState.locationState.filteredCities.ifEmpty { uiState.locationState.availableCities },
-                onClear = { onDropdownClear(LocationType.CITY) } ,
+                onClear = { onDropdownClear(LocationType.CITY) },
                 searchQuery = uiState.locationState.citySearchQuery,
-                onSearchQueryChanged = { onDropdownSearch(LocationType.CITY, it) } ,
+                onSearchQueryChanged = { onDropdownSearch(LocationType.CITY, it) },
                 isSelected = uiState.locationState.selectedCity != null,
-                onOptionSelected = { onDropdownSelected(LocationType.CITY, it) }
+                onOptionSelected = { onDropdownSelected(LocationType.CITY, it) },
             ) { it }
             Spacer(Modifier.height(16.dp))
         }
-        if ((uiState.locationState.isLoadingStates || uiState.locationState.isLoadingCities || uiState.weatherState.isLoadingWeather) && uiState.error == null) {
+        if ((uiState.locationState.isLoadingStates || uiState.locationState.isLoadingCities || uiState.weatherState.isLoadingWeather) &&
+            uiState.error == null
+        ) {
             CircularProgressIndicator(modifier = Modifier.testTag(TAG_PROGRESS))
             Text(text = stringResource(R.string.weather_screen_loading_text), modifier = Modifier.padding(8.dp))
-        }
-        else if (uiState.weatherState.weatherContent == null && uiState.error == null) {
+        } else if (uiState.weatherState.weatherContent == null && uiState.error == null) {
             Text(text = stringResource(R.string.weather_screen_weather_location_data_text), modifier = Modifier.padding(8.dp))
         } else if (uiState.error != null) {
             Text(text = uiState.error.asString(), color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag(TAG_ERROR_TEXT))
@@ -164,9 +170,21 @@ fun WeatherScreenContent(uiState: WeatherUiState,
             Spacer(modifier = Modifier.height(8.dp))
         }
         Row {
-            Button(onClick = onRefreshClicked, modifier = Modifier.testTag(TAG_REFRESH_BUTTON), elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)) {
-                Text(text = if (uiState.weatherState.weatherContent != null) stringResource(R.string.weather_screen_refresh_weather_data_label)
-                else stringResource(R.string.weather_screen_fetch_weather_data_label))
+            Button(
+                onClick = onRefreshClicked,
+                modifier = Modifier.testTag(TAG_REFRESH_BUTTON),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp),
+            ) {
+                Text(
+                    text =
+                        if (uiState.weatherState.weatherContent !=
+                            null
+                        ) {
+                            stringResource(R.string.weather_screen_refresh_weather_data_label)
+                        } else {
+                            stringResource(R.string.weather_screen_fetch_weather_data_label)
+                        },
+                )
             }
             if (uiState.locationState.selectedState != null && uiState.locationState.selectedCity != null) {
                 Spacer(modifier = Modifier.weight(0.1f))
@@ -189,7 +207,7 @@ fun <T> SearchableDropDown(
     onOptionSelected: (String) -> Unit,
     onClear: () -> Unit,
     isSelected: Boolean = false,
-    optionToString: (T) -> String = { it.toString() }
+    optionToString: (T) -> String = { it.toString() },
 ) {
     var expanded by remember { mutableStateOf(false) }
     val focusController = LocalFocusManager.current
@@ -200,13 +218,14 @@ fun <T> SearchableDropDown(
             expanded = expanded,
             onExpandedChange = {
                 expanded = it
-            }
+            },
         ) {
             OutlinedTextField(
-                modifier = Modifier
-                    .menuAnchor(MenuAnchorType.PrimaryNotEditable, true)
-                    .fillMaxWidth()
-                    .testTag(testTag),
+                modifier =
+                    Modifier
+                        .menuAnchor(MenuAnchorType.PrimaryNotEditable, true)
+                        .fillMaxWidth()
+                        .testTag(testTag),
                 value = searchQuery,
                 onValueChange = {
                     onSearchQueryChanged(it)
@@ -223,13 +242,14 @@ fun <T> SearchableDropDown(
                         }
                     } else {
                         ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
-                    }},
-                singleLine = true
+                    }
+                },
+                singleLine = true,
             )
             if (options.isNotEmpty()) {
                 ExposedDropdownMenu(
                     expanded = expanded,
-                    onDismissRequest = { expanded = false }
+                    onDismissRequest = { expanded = false },
                 ) {
                     options.forEach { option ->
                         DropdownMenuItem(
@@ -239,7 +259,7 @@ fun <T> SearchableDropDown(
                                 focusController.clearFocus()
                                 expanded = false
                                 onOptionSelected(optionToString(option))
-                            }
+                            },
                         )
                     }
                 }
@@ -249,33 +269,40 @@ fun <T> SearchableDropDown(
 }
 
 @Composable
-fun WeatherDetails(data: WeatherDataPO, unit : TemperatureUnit = TemperatureUnit.CELSIUS) {
+fun WeatherDetails(
+    data: WeatherDataPO,
+    unit: TemperatureUnit = TemperatureUnit.CELSIUS,
+) {
     Card(elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)) {
-        Column(modifier = Modifier.padding(16.dp),
+        Column(
+            modifier = Modifier.padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center) {
+            verticalArrangement = Arrangement.Center,
+        ) {
             Text(
                 text = data.weatherDescription.asString(),
                 style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.testTag(TAG_WEATHER_DESC)
+                modifier = Modifier.testTag(TAG_WEATHER_DESC),
             )
             if (!data.weatherIcon.isNullOrBlank()) {
                 AsyncImage(
                     model = data.weatherIcon,
                     contentDescription = stringResource(R.string.cd_weather_icon),
-                    modifier = Modifier.size(48.dp)
+                    modifier = Modifier.size(48.dp),
                 )
             }
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = stringResource(R.string.weather_screen_temperature_label) + if (unit == TemperatureUnit.CELSIUS) data.temperatureCelsius.asString() else data.temperatureFahrenheit.asString(),
+                text =
+                    stringResource(R.string.weather_screen_temperature_label) +
+                        if (unit == TemperatureUnit.CELSIUS) data.temperatureCelsius.asString() else data.temperatureFahrenheit.asString(),
                 style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.testTag(TAG_WEATHER_TEMP)
+                modifier = Modifier.testTag(TAG_WEATHER_TEMP),
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = stringResource(R.string.weather_screen_observed_at_label, data.observedAt.asString()),
-                style = MaterialTheme.typography.bodySmall
+                style = MaterialTheme.typography.bodySmall,
             )
         }
     }
@@ -285,13 +312,18 @@ fun WeatherDetails(data: WeatherDataPO, unit : TemperatureUnit = TemperatureUnit
 @Composable
 fun PreviewWeatherScreenContent_Loading() {
     AdventureTheme {
-        WeatherScreenContent(uiState = WeatherUiState(LocationSelectionState(
-            isLoadingCities = true, isLoadingStates = true),
-            WeatherDataState(isLoadingWeather = true)),
+        WeatherScreenContent(
+            uiState =
+                WeatherUiState(
+                    LocationSelectionState(isLoadingCities = true, isLoadingStates = true),
+                    WeatherDataState(isLoadingWeather = true),
+                ),
             onDropdownSelected = { _, _ -> },
             onDropdownSearch = { _, _ -> },
-            onRefreshClicked = {}, onDropdownClear = {},
-            onAddBookmark = {})
+            onRefreshClicked = {},
+            onDropdownClear = {},
+            onAddBookmark = {},
+        )
     }
 }
 
@@ -299,13 +331,18 @@ fun PreviewWeatherScreenContent_Loading() {
 @Composable
 fun PreviewWeatherScreenContent_Loading_Landscape() {
     AdventureTheme {
-        WeatherScreenContent(uiState = WeatherUiState(LocationSelectionState(
-            isLoadingCities = true, isLoadingStates = true),
-            WeatherDataState(isLoadingWeather = true)),
+        WeatherScreenContent(
+            uiState =
+                WeatherUiState(
+                    LocationSelectionState(isLoadingCities = true, isLoadingStates = true),
+                    WeatherDataState(isLoadingWeather = true),
+                ),
             onDropdownSelected = { _, _ -> },
             onDropdownSearch = { _, _ -> },
-            onRefreshClicked = {}, onDropdownClear = {},
-            onAddBookmark = {})
+            onRefreshClicked = {},
+            onDropdownClear = {},
+            onAddBookmark = {},
+        )
     }
 }
 
@@ -315,27 +352,32 @@ fun PreviewWeatherScreenContent_Success() {
     AdventureTheme(darkTheme = true) {
         Surface {
             WeatherScreenContent(
-                uiState = WeatherUiState(
-                    weatherState = WeatherDataState(
-                        isLoadingWeather = false,
-                        weatherContent = WeatherDataPO(
-                            temperatureFahrenheit = UiText.DynamicString("77°F"),
-                            temperatureCelsius = UiText.DynamicString("25°C"),
-                            weatherDescription = UiText.DynamicString("Sunny"),
-                            weatherIcon = "https://openweathermap.org/img/wn/01d@2x.png",
-                            observedAt = UiText.DynamicString("14:30")
-                        )
+                uiState =
+                    WeatherUiState(
+                        weatherState =
+                            WeatherDataState(
+                                isLoadingWeather = false,
+                                weatherContent =
+                                    WeatherDataPO(
+                                        temperatureFahrenheit = UiText.DynamicString("77°F"),
+                                        temperatureCelsius = UiText.DynamicString("25°C"),
+                                        weatherDescription = UiText.DynamicString("Sunny"),
+                                        weatherIcon = "https://openweathermap.org/img/wn/01d@2x.png",
+                                        observedAt = UiText.DynamicString("14:30"),
+                                    ),
+                            ),
+                        locationState =
+                            LocationSelectionState(
+                                selectedState = State("Georgia", "GA"),
+                                selectedCity = "Dunwoody",
+                                availableCities = listOf("Dunwoody", "Powder Springs, Marietta"),
+                            ),
                     ),
-                    locationState = LocationSelectionState(
-                        selectedState = State("Georgia", "GA"),
-                        selectedCity = "Dunwoody",
-                        availableCities = listOf("Dunwoody", "Powder Springs, Marietta")
-                    )
-                ),
                 onDropdownSelected = { _, _ -> },
                 onDropdownSearch = { _, _ -> },
-                onRefreshClicked = {}, onDropdownClear = {},
-                onAddBookmark = {}
+                onRefreshClicked = {},
+                onDropdownClear = {},
+                onAddBookmark = {},
             )
         }
     }
@@ -347,27 +389,32 @@ fun PreviewWeatherScreenContent_Success_Landscape() {
     AdventureTheme(darkTheme = true) {
         Surface {
             WeatherScreenContent(
-                uiState = WeatherUiState(
-                    weatherState = WeatherDataState(
-                        isLoadingWeather = false,
-                        weatherContent = WeatherDataPO(
-                            temperatureFahrenheit = UiText.DynamicString("77°F"),
-                            temperatureCelsius = UiText.DynamicString("25°C"),
-                            weatherDescription = UiText.DynamicString("Sunny"),
-                            weatherIcon = "https://openweathermap.org/img/wn/01d@2x.png",
-                            observedAt = UiText.DynamicString("14:30")
-                        )
+                uiState =
+                    WeatherUiState(
+                        weatherState =
+                            WeatherDataState(
+                                isLoadingWeather = false,
+                                weatherContent =
+                                    WeatherDataPO(
+                                        temperatureFahrenheit = UiText.DynamicString("77°F"),
+                                        temperatureCelsius = UiText.DynamicString("25°C"),
+                                        weatherDescription = UiText.DynamicString("Sunny"),
+                                        weatherIcon = "https://openweathermap.org/img/wn/01d@2x.png",
+                                        observedAt = UiText.DynamicString("14:30"),
+                                    ),
+                            ),
+                        locationState =
+                            LocationSelectionState(
+                                selectedState = State("Georgia", "GA"),
+                                selectedCity = "Dunwoody",
+                                availableCities = listOf("Dunwoody", "Powder Springs, Marietta"),
+                            ),
                     ),
-                    locationState = LocationSelectionState(
-                        selectedState = State("Georgia", "GA"),
-                        selectedCity = "Dunwoody",
-                        availableCities = listOf("Dunwoody", "Powder Springs, Marietta")
-                    )
-                ),
                 onDropdownSelected = { _, _ -> },
                 onDropdownSearch = { _, _ -> },
-                onRefreshClicked = {}, onDropdownClear = {},
-                onAddBookmark = {}
+                onRefreshClicked = {},
+                onDropdownClear = {},
+                onAddBookmark = {},
             )
         }
     }
@@ -378,14 +425,17 @@ fun PreviewWeatherScreenContent_Success_Landscape() {
 fun PreviewWeatherScreenContent_Error() {
     AdventureTheme {
         WeatherScreenContent(
-            uiState = WeatherUiState(
-                weatherState = WeatherDataState(isLoadingWeather = false),
-                locationState = LocationSelectionState(isLoadingStates = false),
-                error = UiText.DynamicString("Network Error")),
+            uiState =
+                WeatherUiState(
+                    weatherState = WeatherDataState(isLoadingWeather = false),
+                    locationState = LocationSelectionState(isLoadingStates = false),
+                    error = UiText.DynamicString("Network Error"),
+                ),
             onDropdownSelected = { _, _ -> },
             onDropdownSearch = { _, _ -> },
-            onRefreshClicked = {}, onDropdownClear = {},
-            onAddBookmark = {}
+            onRefreshClicked = {},
+            onDropdownClear = {},
+            onAddBookmark = {},
         )
     }
 }
@@ -395,14 +445,17 @@ fun PreviewWeatherScreenContent_Error() {
 fun PreviewWeatherScreenContent_Error_Landscape() {
     AdventureTheme {
         WeatherScreenContent(
-            uiState = WeatherUiState(
-                weatherState = WeatherDataState(isLoadingWeather = false),
-                locationState = LocationSelectionState(isLoadingStates = false),
-                error = UiText.DynamicString("Network Error")),
+            uiState =
+                WeatherUiState(
+                    weatherState = WeatherDataState(isLoadingWeather = false),
+                    locationState = LocationSelectionState(isLoadingStates = false),
+                    error = UiText.DynamicString("Network Error"),
+                ),
             onDropdownSelected = { _, _ -> },
             onDropdownSearch = { _, _ -> },
-            onRefreshClicked = {}, onDropdownClear = {},
-            onAddBookmark = {}
+            onRefreshClicked = {},
+            onDropdownClear = {},
+            onAddBookmark = {},
         )
     }
 }

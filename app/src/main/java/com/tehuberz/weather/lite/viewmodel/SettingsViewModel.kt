@@ -12,20 +12,22 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
-class SettingsViewModel @Inject constructor(
-    private val settingsRepository: SettingsRepository
-) : ViewModel() {
+class SettingsViewModel
+    @Inject
+    constructor(
+        private val settingsRepository: SettingsRepository,
+    ) : ViewModel() {
+        val temperatureUnit: StateFlow<TemperatureUnit> =
+            settingsRepository.temperatureUnit
+                .stateIn(
+                    scope = viewModelScope,
+                    started = SharingStarted.WhileSubscribed(5000),
+                    initialValue = TemperatureUnit.CELSIUS,
+                )
 
-    val temperatureUnit: StateFlow<TemperatureUnit> = settingsRepository.temperatureUnit
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = TemperatureUnit.CELSIUS
-        )
-
-    fun setTemperatureUnit(unit: TemperatureUnit) {
-        viewModelScope.launch {
-            settingsRepository.setTemperatureUnit(unit)
+        fun setTemperatureUnit(unit: TemperatureUnit) {
+            viewModelScope.launch {
+                settingsRepository.setTemperatureUnit(unit)
+            }
         }
     }
-}

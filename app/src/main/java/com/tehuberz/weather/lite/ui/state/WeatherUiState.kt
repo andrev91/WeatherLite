@@ -4,12 +4,12 @@ import androidx.compose.ui.text.input.TextFieldValue
 import com.tehuberz.weather.lite.data.local.model.Bookmark
 import com.tehuberz.weather.lite.data.model.State
 import com.tehuberz.weather.lite.data.model.TemperatureUnit
-import com.tehuberz.weather.lite.util.UiText
 import com.tehuberz.weather.lite.ui.model.WeatherDataPO
+import com.tehuberz.weather.lite.util.UiText
 
 data class WeatherUiState(
-    val locationState : LocationSelectionState = LocationSelectionState(),
-    val weatherState : WeatherDataState = WeatherDataState(),
+    val locationState: LocationSelectionState = LocationSelectionState(),
+    val weatherState: WeatherDataState = WeatherDataState(),
     val error: UiText? = null,
     val bookmarks: List<Bookmark> = emptyList(),
     val bookmarkState: BookmarkState? = null,

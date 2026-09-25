@@ -48,7 +48,7 @@ fun WeatherScaffold(
     onRemoveBookmark: (Bookmark) -> Unit,
     onLoadBookmark: (Bookmark) -> Unit,
     onSettingsClick: () -> Unit,
-    content: @Composable (PaddingValues) -> Unit
+    content: @Composable (PaddingValues) -> Unit,
 ) {
     Scaffold(
         topBar = {
@@ -64,7 +64,7 @@ fun WeatherScaffold(
                     }
                     DropdownMenu(
                         expanded = expanded,
-                        onDismissRequest = { expanded = false }
+                        onDismissRequest = { expanded = false },
                     ) {
                         if (uiState.bookmarks.isNotEmpty()) {
                             BookmarksList(
@@ -73,22 +73,22 @@ fun WeatherScaffold(
                                     onLoadBookmark(it)
                                     expanded = false
                                 },
-                                onDeleteClick = onRemoveBookmark
+                                onDeleteClick = onRemoveBookmark,
                             )
                         } else {
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.scaffold_no_bookmarks_yet_label)) },
-                                onClick = { expanded = false }
+                                onClick = { expanded = false },
                             )
                         }
                     }
-                }
+                },
             )
         },
         content = content,
         snackbarHost = {
             SnackbarHost(snackBarHostState)
-        }
+        },
     )
 }
 
@@ -96,7 +96,7 @@ fun WeatherScaffold(
 private fun BookmarksList(
     bookmarks: List<Bookmark>,
     onBookmarkClick: (Bookmark) -> Unit,
-    onDeleteClick: (Bookmark) -> Unit
+    onDeleteClick: (Bookmark) -> Unit,
 ) {
     Card(elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -104,12 +104,13 @@ private fun BookmarksList(
             Spacer(modifier = Modifier.height(8.dp))
             bookmarks.forEach { bookmark ->
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onBookmarkClick(bookmark) }
-                        .padding(8.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable { onBookmarkClick(bookmark) }
+                            .padding(8.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     Text("${bookmark.cityName}, ${bookmark.stateAbbreviation}")
                     IconButton(onClick = { onDeleteClick(bookmark) }) {
@@ -130,6 +131,6 @@ fun PreviewScaffold() {
         onLoadBookmark = {},
         onSettingsClick = {},
         content = {},
-        snackBarHostState = remember { SnackbarHostState() }
+        snackBarHostState = remember { SnackbarHostState() },
     )
 }

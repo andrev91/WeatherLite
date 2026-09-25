@@ -25,7 +25,6 @@ import org.mockito.kotlin.whenever
 
 @ExperimentalCoroutinesApi
 class SettingsViewModelTest {
-
     @get:Rule
     val instantTaskExecutorRule = InstantTaskExecutorRule()
 
@@ -54,22 +53,24 @@ class SettingsViewModelTest {
     }
 
     @Test
-    fun `temperatureUnit initially reflects repository value`() = runTest {
-        viewModel.temperatureUnit.test {
-            assertEquals(TemperatureUnit.CELSIUS, awaitItem())
+    fun `temperatureUnit initially reflects repository value`() =
+        runTest {
+            viewModel.temperatureUnit.test {
+                assertEquals(TemperatureUnit.CELSIUS, awaitItem())
 
-            temperatureUnitFlow.value = TemperatureUnit.FAHRENHEIT
-            assertEquals(TemperatureUnit.FAHRENHEIT, awaitItem())
+                temperatureUnitFlow.value = TemperatureUnit.FAHRENHEIT
+                assertEquals(TemperatureUnit.FAHRENHEIT, awaitItem())
 
-            cancelAndIgnoreRemainingEvents()
+                cancelAndIgnoreRemainingEvents()
+            }
         }
-    }
 
     @Test
-    fun `setTemperatureUnit calls repository`() = runTest {
-        viewModel.setTemperatureUnit(TemperatureUnit.FAHRENHEIT)
-        advanceUntilIdle()
+    fun `setTemperatureUnit calls repository`() =
+        runTest {
+            viewModel.setTemperatureUnit(TemperatureUnit.FAHRENHEIT)
+            advanceUntilIdle()
 
-        verify(settingsRepository).setTemperatureUnit(TemperatureUnit.FAHRENHEIT)
-    }
+            verify(settingsRepository).setTemperatureUnit(TemperatureUnit.FAHRENHEIT)
+        }
 }
