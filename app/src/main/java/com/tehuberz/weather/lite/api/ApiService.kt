@@ -19,6 +19,6 @@ interface ApiService {
     suspend fun getLocation(
         @Query("q") query: String,
         @Query("limit") limit: Int = 1,
-        @Query("appid") apiKey: String
+        @Query("appid") apiKey: String,
     ): Response<List<GeocodingResponse>>
 }
