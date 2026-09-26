@@ -8,5 +8,5 @@ data class WeatherLocationDTO(
     val id: Int? = null,
     val country: String,
     val sunrise: Long,
-    val sunset: Long
+    val sunset: Long,
 )

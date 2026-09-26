@@ -14,35 +14,37 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class SettingsRepository @Inject constructor(
-    private val dataStore: DataStore<Preferences>
-) {
-    private val unitKey = stringPreferencesKey("temperature_unit")
+class SettingsRepository
+    @Inject
+    constructor(
+        private val dataStore: DataStore<Preferences>,
+    ) {
+        private val unitKey = stringPreferencesKey("temperature_unit")
 
-    val temperatureUnit: Flow<TemperatureUnit> = dataStore.data
-        .catch { exception ->
-            if (exception is IOException) {
-                emit(emptyPreferences())
-            } else {
-                throw exception
-            }
-        }
-        .map { preferences ->
-            val unitString = preferences[unitKey]
-            if (unitString != null) {
-                try {
-                    TemperatureUnit.valueOf(unitString)
-                } catch (_: IllegalArgumentException) {
-                    TemperatureUnit.CELSIUS
+        val temperatureUnit: Flow<TemperatureUnit> =
+            dataStore.data
+                .catch { exception ->
+                    if (exception is IOException) {
+                        emit(emptyPreferences())
+                    } else {
+                        throw exception
+                    }
+                }.map { preferences ->
+                    val unitString = preferences[unitKey]
+                    if (unitString != null) {
+                        try {
+                            TemperatureUnit.valueOf(unitString)
+                        } catch (_: IllegalArgumentException) {
+                            TemperatureUnit.CELSIUS
+                        }
+                    } else {
+                        TemperatureUnit.CELSIUS
+                    }
                 }
-            } else {
-                TemperatureUnit.CELSIUS
-            }
-        }
 
-    suspend fun setTemperatureUnit(unit: TemperatureUnit) {
-        dataStore.edit { preferences ->
-            preferences[unitKey] = unit.name
+        suspend fun setTemperatureUnit(unit: TemperatureUnit) {
+            dataStore.edit { preferences ->
+                preferences[unitKey] = unit.name
+            }
         }
     }
-}

@@ -5,5 +5,5 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class USState(
     val name: String,
-    val code: String
+    val code: String,
 )

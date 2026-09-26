@@ -16,94 +16,94 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.serialization.json.Json
 import javax.inject.Inject
 
-class LocationRepository @Inject constructor(
-    @ApplicationContext private val context: Context,
-    private val locationDao: LocationDao,
-    private val bookmarkDao: BookmarkDao,
-    private val locationRemoteDataSource: LocationRemoteDataSource
-) {
+class LocationRepository
+    @Inject
+    constructor(
+        @ApplicationContext private val context: Context,
+        private val locationDao: LocationDao,
+        private val bookmarkDao: BookmarkDao,
+        private val locationRemoteDataSource: LocationRemoteDataSource,
+    ) {
+        fun getBookmarks(): Flow<List<Bookmark>> = bookmarkDao.getAllBookmarks()
 
-    fun getBookmarks(): Flow<List<Bookmark>> = bookmarkDao.getAllBookmarks()
-
-    suspend fun addBookmark(bookmark: Bookmark) {
-        bookmarkDao.insert(bookmark)
-    }
-
-    suspend fun removeBookmark(bookmark: Bookmark) {
-        bookmarkDao.delete(bookmark)
-    }
-
-    suspend fun isBookmarkDuplicate(state: String, city: String): Boolean {
-        return bookmarkDao.getBookmarkByStateAndCity(state, city) != null
-    }
-
-    fun getOrFetchLocation(name: String) : Flow<Result<Location>> = flow {
-        val cachedLocation = locationDao.getLocationBySearchString(name).firstOrNull()
-        if (cachedLocation != null) {
-            emit(Result.success(cachedLocation))
-            return@flow
+        suspend fun addBookmark(bookmark: Bookmark) {
+            bookmarkDao.insert(bookmark)
         }
 
-        locationRemoteDataSource.fetchLocationCoordinates(name).collect { result ->
-            result.onSuccess { coordinates ->
-                val location = Location(name = name, latitude = coordinates.first, longitude = coordinates.second)
-                locationDao.insertLocation(location)
-                emit(Result.success(location))
-            }.onFailure { error ->
-                emit(Result.failure(error))
+        suspend fun removeBookmark(bookmark: Bookmark) {
+            bookmarkDao.delete(bookmark)
+        }
+
+        suspend fun isBookmarkDuplicate(
+            state: String,
+            city: String,
+        ): Boolean = bookmarkDao.getBookmarkByStateAndCity(state, city) != null
+
+        fun getOrFetchLocation(name: String): Flow<Result<Location>> =
+            flow {
+                val cachedLocation = locationDao.getLocationBySearchString(name).firstOrNull()
+                if (cachedLocation != null) {
+                    emit(Result.success(cachedLocation))
+                    return@flow
+                }
+
+                locationRemoteDataSource.fetchLocationCoordinates(name).collect { result ->
+                    result
+                        .onSuccess { coordinates ->
+                            val location = Location(name = name, latitude = coordinates.first, longitude = coordinates.second)
+                            locationDao.insertLocation(location)
+                            emit(Result.success(location))
+                        }.onFailure { error ->
+                            emit(Result.failure(error))
+                        }
+                }
+            }
+
+        private val citiesData: Map<String, StateCities> by lazy {
+            try {
+                val json =
+                    context.assets
+                        .open("us_state_cities.json")
+                        .bufferedReader()
+                        .use { it.readText() }
+                val parsedData: Map<String, StateCities> = Json.Default.decodeFromString(json)
+                return@lazy parsedData
+            } catch (e: Exception) {
+                Log.e("LocationRepository", "Error loading cities data", e)
+                return@lazy emptyMap()
             }
         }
-    }
 
-    private val _citiesData: Map<String, StateCities> by lazy {
-        try {
-            val json = context.assets.open("us_state_cities.json").bufferedReader().use { it.readText() }
-            val parsedData : Map<String, StateCities> = Json.Default.decodeFromString(json)
-            return@lazy parsedData
-        } catch (e: Exception) {
-            Log.e("LocationRepository", "Error loading cities data", e)
-            return@lazy emptyMap()
+        private val statesData: List<State> by lazy {
+            try {
+                val json =
+                    context.assets
+                        .open("us_state.json")
+                        .bufferedReader()
+                        .use { it.readText() }
+                val parsedData: List<State> = Json.Default.decodeFromString(json)
+                return@lazy parsedData
+            } catch (e: Exception) {
+                Log.e("LocationRepository", "Error loading states data", e)
+                return@lazy emptyList()
+            }
         }
+
+        fun getStateFromString(s: String): State? = statesData.find { it.name == s }
+
+        fun getStates(): List<State> = statesData
+
+        fun getCities(): Map<String, StateCities> = citiesData
+
+        /**
+         * Returns a list of ALL cities in the given state.
+         * Expected param for state is the abbreviation. IE "CA" for California
+         */
+        fun getCitiesByState(state: String): List<String> = citiesData[state]?.allCities ?: emptyList()
+
+        /**
+         * Returns a list of MAJOR cities in the given state.
+         * Expected param for state is the abbreviation. IE "CA" for California
+         */
+        fun getMajorCitiesByState(state: String): List<String> = citiesData[state]?.majorCities ?: emptyList()
     }
-
-    private val _statesData: List<State> by lazy {
-        try {
-            val json = context.assets.open("us_state.json").bufferedReader().use { it.readText() }
-            val parsedData : List<State> = Json.Default.decodeFromString(json)
-            return@lazy parsedData
-        } catch (e: Exception) {
-            Log.e("LocationRepository", "Error loading states data", e)
-            return@lazy emptyList()
-        }
-    }
-
-    fun getStateFromString(s : String) : State? {
-        return _statesData.find { it.name == s }
-    }
-
-    fun getStates(): List<State> {
-        return _statesData
-    }
-
-    fun getCities(): Map<String, StateCities> {
-        return _citiesData
-    }
-
-    /**
-     * Returns a list of ALL cities in the given state.
-     * Expected param for state is the abbreviation. IE "CA" for California
-     */
-    fun getCitiesByState(state: String): List<String> {
-        return _citiesData[state]?.allCities ?: emptyList()
-    }
-
-    /**
-     * Returns a list of MAJOR cities in the given state.
-     * Expected param for state is the abbreviation. IE "CA" for California
-     */
-    fun getMajorCitiesByState(state: String): List<String> {
-        return _citiesData[state]?.majorCities ?: emptyList()
-    }
-
-
-}

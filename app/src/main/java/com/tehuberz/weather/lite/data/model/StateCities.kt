@@ -3,7 +3,7 @@ package com.tehuberz.weather.lite.data.model
 import kotlinx.serialization.SerialName
 
 @kotlinx.serialization.Serializable
-data class StateCities (
+data class StateCities(
     @SerialName("major_cities") val majorCities: List<String> = emptyList(),
-    @SerialName("all_cities") val allCities: List<String> = emptyList()
+    @SerialName("all_cities") val allCities: List<String> = emptyList(),
 )

@@ -23,7 +23,7 @@ kotlin {
         freeCompilerArgs.addAll(
             "-opt-in=kotlin.RequiresOptIn",
             "-Xexplicit-backing-fields",
-            "-XXLanguage:+ExplicitBackingFields"
+            "-XXLanguage:+ExplicitBackingFields",
         )
     }
 }
@@ -60,7 +60,7 @@ android {
             isDebuggable = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
+                "proguard-rules.pro",
             )
         }
     }
@@ -149,4 +149,29 @@ dependencies {
     androidTestImplementation(libs.androidx.runner)
     androidTestImplementation(libs.androidx.work.testing)
     kspAndroidTest(libs.hilt.compiler)
+
+    configurations.create("ktlint")
+    "ktlint"(libs.ktlint.cli) {
+        attributes {
+            attribute(Bundling.BUNDLING_ATTRIBUTE, objects.named(Bundling.EXTERNAL))
+        }
+    }
+}
+
+tasks.register<JavaExec>("ktlintCheck") {
+    group = "verification"
+    description = "Check Kotlin code style."
+    classpath = configurations.getByName("ktlint")
+    mainClass.set("com.pinterest.ktlint.Main")
+    args("src/**/*.kt")
+    jvmArgs("--add-opens=java.base/java.lang=ALL-UNNAMED")
+}
+
+tasks.register<JavaExec>("ktlintFormat") {
+    group = "formatting"
+    description = "Fix Kotlin code style deviations."
+    classpath = configurations.getByName("ktlint")
+    mainClass.set("com.pinterest.ktlint.Main")
+    args("-F", "src/**/*.kt")
+    jvmArgs("--add-opens=java.base/java.lang=ALL-UNNAMED")
 }

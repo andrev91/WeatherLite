@@ -21,7 +21,8 @@ import com.tehuberz.weather.lite.ui.model.WeatherDataPO
 import com.tehuberz.weather.lite.ui.state.BookmarkState
 import com.tehuberz.weather.lite.ui.state.LocationSelectionState
 import com.tehuberz.weather.lite.ui.state.LocationType
-import com.tehuberz.weather.lite.ui.state.LocationType.*
+import com.tehuberz.weather.lite.ui.state.LocationType.CITY
+import com.tehuberz.weather.lite.ui.state.LocationType.STATE
 import com.tehuberz.weather.lite.ui.state.WeatherDataState
 import com.tehuberz.weather.lite.ui.state.WeatherUiState
 import com.tehuberz.weather.lite.util.UiText
@@ -31,7 +32,6 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.filter
@@ -40,6 +40,7 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -47,339 +48,401 @@ import java.util.UUID
 import javax.inject.Inject
 
 @HiltViewModel
-class WeatherViewModel @Inject constructor(
-    private val workManager: WorkManager,
-    private val locationRepository: LocationRepository,
-    private val settingsRepository: SettingsRepository
+class WeatherViewModel
+    @Inject
+    constructor(
+        private val workManager: WorkManager,
+        private val locationRepository: LocationRepository,
+        private val settingsRepository: SettingsRepository,
     ) : ViewModel() {
-    val uiState: StateFlow<WeatherUiState> field = MutableStateFlow(WeatherUiState())
-    private val _bookmarkStateChannel = Channel<BookmarkState>()
-    val bookmarkStateChannel = _bookmarkStateChannel.receiveAsFlow()
-    private var weatherWorkerUId: UUID? = null
+        val uiState: StateFlow<WeatherUiState> field = MutableStateFlow(WeatherUiState())
+        private val _bookmarkStateChannel = Channel<BookmarkState>()
+        val bookmarkStateChannel = _bookmarkStateChannel.receiveAsFlow()
+        private var weatherWorkerUId: UUID? = null
 
-    init {
-        fetchStateList()
-        observeBookmarks()
-        observeTemperatureUnit()
-    }
-
-    private fun observeTemperatureUnit() {
-        viewModelScope.launch {
-            settingsRepository.temperatureUnit.collect { unit ->
-                updateWeatherState { it.copy(temperatureUnit = unit) }
-            }
+        init {
+            fetchStateList()
+            observeBookmarks()
+            observeTemperatureUnit()
         }
-    }
 
-    private fun observeBookmarks() {
-        viewModelScope.launch {
-            locationRepository.getBookmarks().collect { bookmarks ->
-                uiState.update { it.copy(bookmarks = bookmarks) }
-            }
-        }
-    }
-
-    fun addBookmark() {
-        viewModelScope.launch {
-            withContext(Dispatchers.IO) {
-                val state = uiState.value.locationState.selectedState ?: return@withContext
-                val city = uiState.value.locationState.selectedCity ?: return@withContext
-
-                if (locationRepository.isBookmarkDuplicate(state.name, city)) {
-                    _bookmarkStateChannel.send(BookmarkState.onError(UiText.StringResource(R.string.cannot_save_duplicate_bookmark)))
-                    return@withContext
-                }
-
-                val bookmark = Bookmark(
-                    stateName = state.name,
-                    stateAbbreviation = state.abbreviation,
-                    cityName = city
-                )
-                locationRepository.addBookmark(bookmark)
-                _bookmarkStateChannel.send(BookmarkState.onSuccess(UiText.StringResource(R.string.bookmark_successfully_added)))
-            }
-        }
-    }
-
-    fun removeBookmark(bookmark: Bookmark) {
-        viewModelScope.launch {
-            locationRepository.removeBookmark(bookmark)
-            _bookmarkStateChannel.send(BookmarkState.onDelete(UiText.StringResource(R.string.bookmark_removed)))
-        }
-    }
-
-    fun loadBookmark(bookmark: Bookmark) {
-        setDropdownSelection(STATE, bookmark.stateName)
-        setDropdownSelection(CITY, bookmark.cityName)
-    }
-
-    private fun searchStateList(query: TextFieldValue) {
-        uiState.update { it.copy(error = null) }
-        updateLocationState { currentState ->
-            val filteredStates = if (query.text.isBlank()) { currentState.availableStates }
-            else {
-                currentState.availableStates?.filter { state ->
-                    state.name.contains(query.text, ignoreCase = true)
-                } ?: emptyList()
-            }
-            currentState.copy(stateSearchQuery = query, filteredStates = filteredStates!!)
-        }
-    }
-
-    fun clearDropdownSelection(locationType : LocationType) {
-        when (locationType) {
-            STATE -> {
-                searchJob?.cancel()
-                updateLocationState { currentState -> currentState.copy(selectedState = null, isLoadingStates = false, filteredStates = emptyList(),
-                    isLoadingCities = false, selectedCity = null, availableCities = null,
-                    stateSearchQuery = TextFieldValue(""), citySearchQuery = TextFieldValue("")) }
-            }
-            CITY -> {
-                searchJob?.cancel()
-                updateLocationState { currentState -> currentState.copy(
-                    isLoadingCities = false, selectedCity = null, filteredCities = emptyList(), citySearchQuery = TextFieldValue("")) }
-            }
-        }
-        updateWeatherState { currentState -> currentState.copy(weatherContent = null) }
-        uiState.update { it.copy(error = null) }
-    }
-
-    fun setDropdownSelection(locationType : LocationType, location: String) {
-        when (locationType) {
-            STATE -> {
-                searchJob?.cancel()
-                val state = locationRepository.getStateFromString(location) ?: return
-                if (state == uiState.value.locationState.selectedState) return
-
-                updateLocationState { currentState -> currentState.copy(selectedState = state, isLoadingStates = false
-                    , isLoadingCities = true, selectedCity = null, availableCities = null,
-                    stateSearchQuery = TextFieldValue(state.name), citySearchQuery = TextFieldValue("")) }
-                updateWeatherState { currentState -> currentState.copy(weatherContent = null) }
-                uiState.update { it.copy(error = null) }
-
-                viewModelScope.launch {
-                    val cities = locationRepository.getMajorCitiesByState(state.abbreviation)
-                    updateLocationState { currentState -> currentState.copy(availableCities = cities, isLoadingCities = false) }
+        private fun observeTemperatureUnit() {
+            viewModelScope.launch {
+                settingsRepository.temperatureUnit.collect { unit ->
+                    updateWeatherState { it.copy(temperatureUnit = unit) }
                 }
             }
-            CITY -> {
-                searchJob?.cancel()
-                if (location == uiState.value.locationState.selectedCity) return
-                updateLocationState { currentState -> currentState.copy(selectedCity = location, citySearchQuery = TextFieldValue(location)) }
-                updateWeatherState { currentState -> currentState.copy(weatherContent = null) }
-                uiState.update { it.copy(error = null) }
+        }
+
+        private fun observeBookmarks() {
+            viewModelScope.launch {
+                locationRepository.getBookmarks().collect { bookmarks ->
+                    uiState.update { it.copy(bookmarks = bookmarks) }
+                }
             }
         }
-    }
 
-    fun searchDropdownList(locationType: LocationType, query: TextFieldValue) {
-        when (locationType) {
-            STATE -> {
-                searchStateList(query)
-            }
-            CITY -> {
-                searchCityList(query)
-            }
-        }
-    }
+        fun addBookmark() {
+            viewModelScope.launch {
+                withContext(Dispatchers.IO) {
+                    val state = uiState.value.locationState.selectedState ?: return@withContext
+                    val city = uiState.value.locationState.selectedCity ?: return@withContext
 
-    private var searchJob: Job? = null
-
-    private fun searchCityList(query: TextFieldValue) {
-        if (uiState.value.locationState.citySearchQuery == query) return
-
-        updateLocationState { currentState -> currentState.copy(citySearchQuery = query) }
-        uiState.update { it.copy(error = null) }
-
-        searchJob?.cancel()
-        searchJob = viewModelScope.launch(Dispatchers.Default) {
-            val currentState = uiState.value.locationState
-            val filteredCities = if (query.text.isBlank()) {
-                currentState.availableCities ?: emptyList()
-            } else {
-                val test = currentState.selectedState?.abbreviation
-                val cities = locationRepository.getCities()[test]
-                cities?.allCities
-                    ?.filter { city ->
-                        city.contains(query.text, ignoreCase = true)
-                    } ?: emptyList()
-            }
-
-            if (isActive) {
-                updateLocationState { state -> state.copy(filteredCities = filteredCities) }
-            }
-        }
-    }
-
-    private fun fetchWeather(lat: Double, lon: Double) {
-        updateWeatherState { currentState -> currentState.copy(weatherContent = null) }
-        uiState.update { it.copy(error = null) }
-        val weatherRequest = OneTimeWorkRequestBuilder<WeatherWorker>()
-            .setInputData(
-                workDataOf(
-                    WeatherWorker.WEATHER_LAT_KEY to lat,
-                    WeatherWorker.WEATHER_LON_KEY to lon
-                )
-            ).setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
-            .build()
-        weatherWorkerUId = weatherRequest.id
-        observerWeatherWork(weatherWorkerUId!!)
-        workManager.enqueueUniqueWork(
-            "WeatherLocation_$lat,$lon",
-            ExistingWorkPolicy.REPLACE,
-            weatherRequest
-        )
-    }
-
-    fun searchLocation() {
-        if (uiState.value.locationState.selectedState == null || uiState.value.locationState.selectedCity == null) {
-            uiState.update { it.copy(error = UiText.DynamicString("Please select a state and city.")) }
-            return
-        }
-        if (uiState.value.weatherState.isLoadingWeather) return
-        updateWeatherState { currentState -> currentState.copy(weatherContent = null, isLoadingWeather = true) }
-        uiState.update { it.copy(error = null) }
-        val state = uiState.value.locationState.selectedState?.name ?: return
-        val city = uiState.value.locationState.selectedCity ?: ""
-
-        viewModelScope.launch {
-            withContext(Dispatchers.Main) {
-                locationRepository.getOrFetchLocation("$city, $state")
-                    .collect { result ->
-                        result.onSuccess { location ->
-                            fetchWeather(location.latitude, location.longitude)
-                        }.onFailure { error ->
-                            uiState.update { it.copy(error = UiText.DynamicString(error.message!!)) }
-                        }
+                    if (locationRepository.isBookmarkDuplicate(state.name, city)) {
+                        _bookmarkStateChannel.send(BookmarkState.OnError(UiText.StringResource(R.string.cannot_save_duplicate_bookmark)))
+                        return@withContext
                     }
+
+                    val bookmark =
+                        Bookmark(
+                            stateName = state.name,
+                            stateAbbreviation = state.abbreviation,
+                            cityName = city,
+                        )
+                    locationRepository.addBookmark(bookmark)
+                    _bookmarkStateChannel.send(BookmarkState.OnSuccess(UiText.StringResource(R.string.bookmark_successfully_added)))
+                }
             }
         }
-    }
 
+        fun removeBookmark(bookmark: Bookmark) {
+            viewModelScope.launch {
+                locationRepository.removeBookmark(bookmark)
+                _bookmarkStateChannel.send(BookmarkState.OnDelete(UiText.StringResource(R.string.bookmark_removed)))
+            }
+        }
 
-    private fun fetchStateList() {
-        if (uiState.value.locationState.isLoadingStates) return
+        fun loadBookmark(bookmark: Bookmark) {
+            setDropdownSelection(STATE, bookmark.stateName)
+            setDropdownSelection(CITY, bookmark.cityName)
+        }
 
-        updateLocationState { currentState -> currentState.copy(isLoadingStates = true, selectedState = null,
-            selectedCity = null, availableStates = null, availableCities = null) }
-        uiState.update { it.copy(error = null) }
-        val stateData = locationRepository.getStates()
-        updateLocationState { currentState -> currentState.copy(availableStates = stateData, filteredStates = stateData,
-            isLoadingStates = false) }
-    }
-
-    private fun observerWeatherWork(uuid: UUID) {
-        workManager.getWorkInfoByIdFlow(uuid)
-            .filterNotNull()
-            .filter { it.id == weatherWorkerUId }
-            .onEach { workInfo -> processWeather(workInfo) }
-            .launchIn(viewModelScope)
-    }
-
-    private fun processWeather(workInfo: WorkInfo) {
-        when (workInfo.state) {
-            WorkInfo.State.SUCCEEDED -> {
-                val outputData = workInfo.outputData
-                val success = outputData.getBoolean(WeatherWorker.OUTPUT_SUCCESS, false)
-
-                if (success) {
-                    val weatherJson = outputData.getString(WeatherWorker.WEATHER_JSON)
-                    if (weatherJson != null) {
-                        try {
-                            val response = Json.decodeFromString<OpenWeatherResponseDTO>(weatherJson)
-                            updateWeatherState { currentState ->
-                                currentState.copy(
-                                    weatherContent = mapResponseToWeatherDataPO(response),
-                                    isLoadingWeather = false
-                                )
-                            }
-                            uiState.update { it.copy(error = null) }
-                            Log.d(TAG, "Successfully parsed weather data from worker.")
-                        } catch (e: Exception) {
-                            Log.e(TAG, "Error parsing JSON from worker output", e)
-                            updateWeatherState { currentState -> currentState.copy(isLoadingWeather = false) }
-                            uiState.update { it.copy(error = UiText.StringResource(R.string.failed_to_parse_weather_data_error)) }
-                        }
+        private fun searchStateList(query: TextFieldValue) {
+            uiState.update { it.copy(error = null) }
+            updateLocationState { currentState ->
+                val filteredStates =
+                    if (query.text.isBlank()) {
+                        currentState.availableStates
                     } else {
-                        Log.e(TAG, "Work succeeded but weather JSON was null.")
-                        updateWeatherState { currentState -> currentState.copy(isLoadingWeather = false) }
-                        uiState.update { it.copy(error = UiText.StringResource(R.string.received_empty_success_response_error)) }
+                        currentState.availableStates?.filter { state ->
+                            state.name.contains(query.text, ignoreCase = true)
+                        } ?: emptyList()
                     }
-                } else {
-                    val errorMsg = outputData.getString(WeatherWorker.OUTPUT_ERROR_MESSAGE)
-                        ?: "Worker reported failure."
-                    Log.e(TAG, "Work succeeded but internal flag was false: $errorMsg")
-                    updateWeatherState { currentState -> currentState.copy(isLoadingWeather = false) }
-                    uiState.update { it.copy(error = UiText.DynamicString(errorMsg)) }
+                currentState.copy(stateSearchQuery = query, filteredStates = filteredStates!!)
+            }
+        }
+
+        fun clearDropdownSelection(locationType: LocationType) {
+            when (locationType) {
+                STATE -> {
+                    searchJob?.cancel()
+                    updateLocationState { currentState ->
+                        currentState.copy(
+                            selectedState = null,
+                            isLoadingStates = false,
+                            filteredStates = emptyList(),
+                            isLoadingCities = false,
+                            selectedCity = null,
+                            availableCities = null,
+                            stateSearchQuery = TextFieldValue(""),
+                            citySearchQuery = TextFieldValue(""),
+                        )
+                    }
                 }
-                weatherWorkerUId = null
-            }
 
-            WorkInfo.State.FAILED -> {
-                val errorMsg = workInfo.outputData.getString(WeatherWorker.OUTPUT_ERROR_MESSAGE)
-                    ?: "Unknown error"
-                Log.e(TAG, "Work failed: $errorMsg")
-                updateWeatherState { currentState -> currentState.copy(isLoadingWeather = false) }
-                uiState.update { it.copy(error = UiText.DynamicString(errorMsg)) }
-                weatherWorkerUId = null
-            }
-
-            WorkInfo.State.CANCELLED -> {
-                Log.w(TAG, "Work cancelled.")
-                uiState.update {
-                    uiState.value.copy(error = UiText.StringResource(R.string.weather_fetch_cancelled_error))
+                CITY -> {
+                    searchJob?.cancel()
+                    updateLocationState { currentState ->
+                        currentState.copy(
+                            isLoadingCities = false,
+                            selectedCity = null,
+                            filteredCities = emptyList(),
+                            citySearchQuery = TextFieldValue(""),
+                        )
+                    }
                 }
-                updateWeatherState { currentState -> currentState.copy(isLoadingWeather = false) }
-                weatherWorkerUId = null
             }
+            updateWeatherState { currentState -> currentState.copy(weatherContent = null) }
+            uiState.update { it.copy(error = null) }
+        }
 
-            WorkInfo.State.RUNNING, WorkInfo.State.ENQUEUED, WorkInfo.State.BLOCKED -> {
-                Log.d(TAG, "Work is ${workInfo.state}.")
-                if (!uiState.value.weatherState.isLoadingWeather) {
-                    updateWeatherState { currentState -> currentState.copy(isLoadingWeather = true) }
+        fun setDropdownSelection(
+            locationType: LocationType,
+            location: String,
+        ) {
+            when (locationType) {
+                STATE -> {
+                    searchJob?.cancel()
+                    val state = locationRepository.getStateFromString(location) ?: return
+                    if (state == uiState.value.locationState.selectedState) return
+
+                    updateLocationState { currentState ->
+                        currentState.copy(
+                            selectedState = state,
+                            isLoadingStates = false,
+                            isLoadingCities = true,
+                            selectedCity = null,
+                            availableCities = null,
+                            stateSearchQuery = TextFieldValue(state.name),
+                            citySearchQuery = TextFieldValue(""),
+                        )
+                    }
+                    updateWeatherState { currentState -> currentState.copy(weatherContent = null) }
+                    uiState.update { it.copy(error = null) }
+
+                    viewModelScope.launch {
+                        val cities = locationRepository.getMajorCitiesByState(state.abbreviation)
+                        updateLocationState { currentState -> currentState.copy(availableCities = cities, isLoadingCities = false) }
+                    }
+                }
+
+                CITY -> {
+                    searchJob?.cancel()
+                    if (location == uiState.value.locationState.selectedCity) return
+                    updateLocationState { currentState ->
+                        currentState.copy(selectedCity = location, citySearchQuery = TextFieldValue(location))
+                    }
+                    updateWeatherState { currentState -> currentState.copy(weatherContent = null) }
                     uiState.update { it.copy(error = null) }
                 }
             }
         }
-    }
 
-    @SuppressLint("DefaultLocale")
-    private fun mapResponseToWeatherDataPO(response: OpenWeatherResponseDTO): WeatherDataPO {
-        val formattedTempFahrenheit = "${response.main.temp}°F"
-        val formattedTempCelsius = String.format("%.2f°C", (response.main.temp - 32) * 5 / 9)
-        val observedTime = UnixTimestampToLocal.execute(response.dt)
-        val icon = response.weather.firstOrNull()?.icon
-        val weatherIconUrl = if (icon.isNullOrBlank()) {
-            null
-        } else {
-            "https://openweathermap.org/img/wn/$icon@2x.png"
+        fun searchDropdownList(
+            locationType: LocationType,
+            query: TextFieldValue,
+        ) {
+            when (locationType) {
+                STATE -> {
+                    searchStateList(query)
+                }
+
+                CITY -> {
+                    searchCityList(query)
+                }
+            }
         }
 
-        return WeatherDataPO(
-            weatherDescription = UiText.DynamicString(response.weather.firstOrNull()?.description ?: "No description"),
-            weatherIcon = weatherIconUrl,
-            temperatureFahrenheit = UiText.DynamicString(formattedTempFahrenheit),
-            temperatureCelsius = UiText.DynamicString(formattedTempCelsius),
-            observedAt = UiText.DynamicString(observedTime)
-        )
-    }
+        private var searchJob: Job? = null
 
-    private fun updateLocationState(
-        update: (currentState: LocationSelectionState) -> LocationSelectionState) {
-        uiState.update { currentState ->
-            currentState.copy(locationState = update(currentState.locationState))
+        private fun searchCityList(query: TextFieldValue) {
+            if (uiState.value.locationState.citySearchQuery == query) return
+
+            updateLocationState { currentState -> currentState.copy(citySearchQuery = query) }
+            uiState.update { it.copy(error = null) }
+
+            searchJob?.cancel()
+            searchJob =
+                viewModelScope.launch(Dispatchers.Default) {
+                    val currentState = uiState.value.locationState
+                    val filteredCities =
+                        if (query.text.isBlank()) {
+                            currentState.availableCities ?: emptyList()
+                        } else {
+                            val test = currentState.selectedState?.abbreviation
+                            val cities = locationRepository.getCities()[test]
+                            cities
+                                ?.allCities
+                                ?.filter { city ->
+                                    city.contains(query.text, ignoreCase = true)
+                                } ?: emptyList()
+                        }
+
+                    if (isActive) {
+                        updateLocationState { state -> state.copy(filteredCities = filteredCities) }
+                    }
+                }
+        }
+
+        private fun fetchWeather(
+            lat: Double,
+            lon: Double,
+        ) {
+            updateWeatherState { currentState -> currentState.copy(weatherContent = null) }
+            uiState.update { it.copy(error = null) }
+            val weatherRequest =
+                OneTimeWorkRequestBuilder<WeatherWorker>()
+                    .setInputData(
+                        workDataOf(
+                            WeatherWorker.WEATHER_LAT_KEY to lat,
+                            WeatherWorker.WEATHER_LON_KEY to lon,
+                        ),
+                    ).setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+                    .build()
+            weatherWorkerUId = weatherRequest.id
+            observerWeatherWork(weatherWorkerUId!!)
+            workManager.enqueueUniqueWork(
+                "WeatherLocation_$lat,$lon",
+                ExistingWorkPolicy.REPLACE,
+                weatherRequest,
+            )
+        }
+
+        fun searchLocation() {
+            if (uiState.value.locationState.selectedState == null || uiState.value.locationState.selectedCity == null) {
+                uiState.update { it.copy(error = UiText.DynamicString("Please select a state and city.")) }
+                return
+            }
+            if (uiState.value.weatherState.isLoadingWeather) return
+            updateWeatherState { currentState -> currentState.copy(weatherContent = null, isLoadingWeather = true) }
+            uiState.update { it.copy(error = null) }
+            val state =
+                uiState.value.locationState.selectedState
+                    ?.name ?: return
+            val city = uiState.value.locationState.selectedCity ?: ""
+
+            viewModelScope.launch {
+                withContext(Dispatchers.Main) {
+                    locationRepository
+                        .getOrFetchLocation("$city, $state")
+                        .collect { result ->
+                            result
+                                .onSuccess { location ->
+                                    fetchWeather(location.latitude, location.longitude)
+                                }.onFailure { error ->
+                                    uiState.update { it.copy(error = UiText.DynamicString(error.message!!)) }
+                                }
+                        }
+                }
+            }
+        }
+
+        private fun fetchStateList() {
+            if (uiState.value.locationState.isLoadingStates) return
+
+            updateLocationState { currentState ->
+                currentState.copy(
+                    isLoadingStates = true,
+                    selectedState = null,
+                    selectedCity = null,
+                    availableStates = null,
+                    availableCities = null,
+                )
+            }
+            uiState.update { it.copy(error = null) }
+            val stateData = locationRepository.getStates()
+            updateLocationState { currentState ->
+                currentState.copy(
+                    availableStates = stateData,
+                    filteredStates = stateData,
+                    isLoadingStates = false,
+                )
+            }
+        }
+
+        private fun observerWeatherWork(uuid: UUID) {
+            workManager
+                .getWorkInfoByIdFlow(uuid)
+                .filterNotNull()
+                .filter { it.id == weatherWorkerUId }
+                .onEach { workInfo -> processWeather(workInfo) }
+                .launchIn(viewModelScope)
+        }
+
+        private fun processWeather(workInfo: WorkInfo) {
+            when (workInfo.state) {
+                WorkInfo.State.SUCCEEDED -> {
+                    val outputData = workInfo.outputData
+                    val success = outputData.getBoolean(WeatherWorker.OUTPUT_SUCCESS, false)
+
+                    if (success) {
+                        val weatherJson = outputData.getString(WeatherWorker.WEATHER_JSON)
+                        if (weatherJson != null) {
+                            try {
+                                val response = Json.decodeFromString<OpenWeatherResponseDTO>(weatherJson)
+                                updateWeatherState { currentState ->
+                                    currentState.copy(
+                                        weatherContent = mapResponseToWeatherDataPO(response),
+                                        isLoadingWeather = false,
+                                    )
+                                }
+                                uiState.update { it.copy(error = null) }
+                                Log.d(TAG, "Successfully parsed weather data from worker.")
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Error parsing JSON from worker output", e)
+                                updateWeatherState { currentState -> currentState.copy(isLoadingWeather = false) }
+                                uiState.update { it.copy(error = UiText.StringResource(R.string.failed_to_parse_weather_data_error)) }
+                            }
+                        } else {
+                            Log.e(TAG, "Work succeeded but weather JSON was null.")
+                            updateWeatherState { currentState -> currentState.copy(isLoadingWeather = false) }
+                            uiState.update { it.copy(error = UiText.StringResource(R.string.received_empty_success_response_error)) }
+                        }
+                    } else {
+                        val errorMsg =
+                            outputData.getString(WeatherWorker.OUTPUT_ERROR_MESSAGE)
+                                ?: "Worker reported failure."
+                        Log.e(TAG, "Work succeeded but internal flag was false: $errorMsg")
+                        updateWeatherState { currentState -> currentState.copy(isLoadingWeather = false) }
+                        uiState.update { it.copy(error = UiText.DynamicString(errorMsg)) }
+                    }
+                    weatherWorkerUId = null
+                }
+
+                WorkInfo.State.FAILED -> {
+                    val errorMsg =
+                        workInfo.outputData.getString(WeatherWorker.OUTPUT_ERROR_MESSAGE)
+                            ?: "Unknown error"
+                    Log.e(TAG, "Work failed: $errorMsg")
+                    updateWeatherState { currentState -> currentState.copy(isLoadingWeather = false) }
+                    uiState.update { it.copy(error = UiText.DynamicString(errorMsg)) }
+                    weatherWorkerUId = null
+                }
+
+                WorkInfo.State.CANCELLED -> {
+                    Log.w(TAG, "Work cancelled.")
+                    uiState.update {
+                        uiState.value.copy(error = UiText.StringResource(R.string.weather_fetch_cancelled_error))
+                    }
+                    updateWeatherState { currentState -> currentState.copy(isLoadingWeather = false) }
+                    weatherWorkerUId = null
+                }
+
+                WorkInfo.State.RUNNING, WorkInfo.State.ENQUEUED, WorkInfo.State.BLOCKED -> {
+                    Log.d(TAG, "Work is ${workInfo.state}.")
+                    if (!uiState.value.weatherState.isLoadingWeather) {
+                        updateWeatherState { currentState -> currentState.copy(isLoadingWeather = true) }
+                        uiState.update { it.copy(error = null) }
+                    }
+                }
+            }
+        }
+
+        @SuppressLint("DefaultLocale")
+        private fun mapResponseToWeatherDataPO(response: OpenWeatherResponseDTO): WeatherDataPO {
+            val formattedTempFahrenheit = "${response.main.temp}°F"
+            val formattedTempCelsius = String.format("%.2f°C", (response.main.temp - 32) * 5 / 9)
+            val observedTime = UnixTimestampToLocal.execute(response.dt)
+            val icon = response.weather.firstOrNull()?.icon
+            val weatherIconUrl =
+                if (icon.isNullOrBlank()) {
+                    null
+                } else {
+                    "https://openweathermap.org/img/wn/$icon@2x.png"
+                }
+
+            return WeatherDataPO(
+                weatherDescription = UiText.DynamicString(response.weather.firstOrNull()?.description ?: "No description"),
+                weatherIcon = weatherIconUrl,
+                temperatureFahrenheit = UiText.DynamicString(formattedTempFahrenheit),
+                temperatureCelsius = UiText.DynamicString(formattedTempCelsius),
+                observedAt = UiText.DynamicString(observedTime),
+            )
+        }
+
+        private fun updateLocationState(update: (currentState: LocationSelectionState) -> LocationSelectionState) {
+            uiState.update { currentState ->
+                currentState.copy(locationState = update(currentState.locationState))
+            }
+        }
+
+        private fun updateWeatherState(update: (currentState: WeatherDataState) -> WeatherDataState) {
+            uiState.update { currentState ->
+                currentState.copy(weatherState = update(currentState.weatherState))
+            }
+        }
+
+        companion object {
+            const val TAG = "MainViewModel"
         }
     }
-
-    private fun updateWeatherState(
-        update: (currentState: WeatherDataState) -> WeatherDataState) {
-        uiState.update { currentState ->
-            currentState.copy(weatherState = update(currentState.weatherState))
-        }
-    }
-
-    companion object {
-        const val TAG = "MainViewModel"
-    }
-
-}

@@ -6,5 +6,5 @@ import kotlinx.serialization.Serializable
 data class WindDTO(
     val speed: Double,
     val deg: Int,
-    val gust: Double? = null
+    val gust: Double? = null,
 )

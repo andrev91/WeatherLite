@@ -11,7 +11,14 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.tehuberz.weather.lite.activity.MainActivity
-import com.tehuberz.weather.lite.ui.screen.*
+import com.tehuberz.weather.lite.ui.screen.TAG_CITY_DROPDOWN
+import com.tehuberz.weather.lite.ui.screen.TAG_ERROR_TEXT
+import com.tehuberz.weather.lite.ui.screen.TAG_LOCATION_DROPDOWN
+import com.tehuberz.weather.lite.ui.screen.TAG_LOCATION_DROPDOWN_OUTLINE
+import com.tehuberz.weather.lite.ui.screen.TAG_PROGRESS
+import com.tehuberz.weather.lite.ui.screen.TAG_REFRESH_BUTTON
+import com.tehuberz.weather.lite.ui.screen.TAG_WEATHER_DESC
+import com.tehuberz.weather.lite.ui.screen.TAG_WEATHER_TEMP
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import org.junit.Before
@@ -22,7 +29,6 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 @HiltAndroidTest
 class WeatherScreenTest {
-
     @get:Rule(order = 0)
     var hiltRule = HiltAndroidRule(this)
 
@@ -34,21 +40,21 @@ class WeatherScreenTest {
         hiltRule.inject()
     }
 
-    private fun waitForLoad(milliseconds : Long = 15000L) {
+    private fun waitForLoad(milliseconds: Long = 15000L) {
         composeTestRule.waitUntil(milliseconds) {
             val progress = composeTestRule.onAllNodesWithTag(TAG_PROGRESS, useUnmergedTree = true)
             progress.fetchSemanticsNodes().isEmpty()
         }
     }
 
-    private fun waitForInitialLoad(milliseconds : Long = 20000L) {
+    private fun waitForInitialLoad(milliseconds: Long = 20000L) {
         composeTestRule.waitUntil(milliseconds) {
             var isEnabled = false
             try {
                 composeTestRule.onNodeWithTag(TAG_LOCATION_DROPDOWN_OUTLINE).assertIsEnabled()
                 isEnabled = true
-            } catch (e : AssertionError) {
-                //Not enabled yet
+            } catch (_: AssertionError) {
+                // Not enabled yet
             }
             isEnabled
         }
@@ -59,43 +65,49 @@ class WeatherScreenTest {
     fun initialState_ShowSelectionLocationOrLoading() {
         composeTestRule.onNodeWithTag(TAG_LOCATION_DROPDOWN).assertIsDisplayed()
         composeTestRule.onNodeWithTag(TAG_LOCATION_DROPDOWN).performClick()
+        try {
+            composeTestRule.onNodeWithText("Loading...").assertIsDisplayed()
+        } catch (_: AssertionError) {
+            println("InitialState: 'Loading locations...' not found, might have loaded quickly or failed to load list.")
             try {
-                composeTestRule.onNodeWithText("Loading...").assertIsDisplayed()
-            } catch (e : AssertionError) {
-                println("InitialState: 'Loading locations...' not found, might have loaded quickly or failed to load list.")
-                try {
-                    composeTestRule.onNodeWithText("Select Location", substring = true).assertIsDisplayed()
-                } catch (e2: AssertionError) {
-                    println("InitialState: 'Please select' text not found either.")
-                }
+                composeTestRule.onNodeWithText("Select Location", substring = true).assertIsDisplayed()
+            } catch (_: AssertionError) {
+                println("InitialState: 'Please select' text not found either.")
             }
-        composeTestRule.onNodeWithTag(TAG_LOCATION_DROPDOWN).performClick() //Close dropdown back
+        }
+        composeTestRule.onNodeWithTag(TAG_LOCATION_DROPDOWN).performClick() // Close dropdown back
     }
 
     @Test
     fun selectLocation_ThenFetchesAndDisplaysData() {
         waitForInitialLoad()
         composeTestRule.onNodeWithTag(TAG_LOCATION_DROPDOWN).performClick()
-        composeTestRule.waitUntil { composeTestRule.onAllNodesWithTag(TAG_LOCATION_DROPDOWN, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
+        composeTestRule.waitUntil {
+            composeTestRule.onAllNodesWithTag(TAG_LOCATION_DROPDOWN, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
+        }
         composeTestRule.onNodeWithText("New York", useUnmergedTree = true).performScrollTo().performClick()
         composeTestRule.onNodeWithTag(TAG_CITY_DROPDOWN).performClick()
-        composeTestRule.waitUntil { composeTestRule.onAllNodesWithTag(TAG_CITY_DROPDOWN, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
+        composeTestRule.waitUntil {
+            composeTestRule.onAllNodesWithTag(TAG_CITY_DROPDOWN, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
+        }
         composeTestRule.onNodeWithText("New York", useUnmergedTree = true).performScrollTo().performClick()
         composeTestRule.onNodeWithTag(TAG_REFRESH_BUTTON).performClick()
 
         waitForLoad()
 
         try {
-            composeTestRule.onNodeWithTag(TAG_WEATHER_DESC, useUnmergedTree = true)
+            composeTestRule
+                .onNodeWithTag(TAG_WEATHER_DESC, useUnmergedTree = true)
                 .assertIsDisplayed()
-        } catch (e : AssertionError) {
+        } catch (e: AssertionError) {
             throw AssertionError("Weather description not found.", e)
         }
 
         try {
-            composeTestRule.onNodeWithTag(TAG_WEATHER_TEMP, useUnmergedTree = true)
+            composeTestRule
+                .onNodeWithTag(TAG_WEATHER_TEMP, useUnmergedTree = true)
                 .assertIsDisplayed()
-        } catch (e : AssertionError) {
+        } catch (e: AssertionError) {
             throw AssertionError("Weather temperature not found.", e)
         }
 
@@ -107,7 +119,8 @@ class WeatherScreenTest {
         selectLocation_ThenFetchesAndDisplaysData() // Reuse previous test logic
 
         println("Data displayed. Clicking refresh...")
-        composeTestRule.onNodeWithTag(TAG_REFRESH_BUTTON)
+        composeTestRule
+            .onNodeWithTag(TAG_REFRESH_BUTTON)
             .assertIsDisplayed()
             .performClick()
 
@@ -124,5 +137,4 @@ class WeatherScreenTest {
         waitForLoad()
         composeTestRule.onNodeWithTag(TAG_WEATHER_DESC, useUnmergedTree = true).assertExists()
     }
-
 }

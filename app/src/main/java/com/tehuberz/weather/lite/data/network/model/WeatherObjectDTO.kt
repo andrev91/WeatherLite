@@ -17,5 +17,5 @@ data class WeatherObjectDTO(
     @SerialName("sea_level")
     val seaLevel: Int? = null,
     @SerialName("grnd_level")
-    val grndLevel: Int? = null
+    val grndLevel: Int? = null,
 )

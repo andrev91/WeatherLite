@@ -1,0 +1,7 @@
+root = true
+
+[*.kt]
+# @Composable/@Preview functions use PascalCase per Android Compose convention.
+ktlint_function_naming_ignore_when_annotated_with = Composable,Preview
+# The _-prefixed by-lazy fields in LocationRepository are private cache fields.
+ktlint_standard_backing-property-naming = disabled
