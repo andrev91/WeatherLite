@@ -15,6 +15,7 @@ plugins {
     alias(libs.plugins.jetbrains.kotlin.serialization)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt.android)
+    alias(libs.plugins.ktlint)
 }
 
 kotlin {
@@ -23,7 +24,7 @@ kotlin {
         freeCompilerArgs.addAll(
             "-opt-in=kotlin.RequiresOptIn",
             "-Xexplicit-backing-fields",
-            "-XXLanguage:+ExplicitBackingFields"
+            "-XXLanguage:+ExplicitBackingFields",
         )
     }
 }
@@ -60,7 +61,7 @@ android {
             isDebuggable = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
+                "proguard-rules.pro",
             )
         }
     }
