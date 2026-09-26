@@ -25,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -32,7 +33,6 @@ import com.tehuberz.weather.lite.R
 import com.tehuberz.weather.lite.data.model.TemperatureUnit
 import com.tehuberz.weather.lite.viewmodel.SettingsViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     onNavigateBack: () -> Unit,
@@ -40,6 +40,20 @@ fun SettingsScreen(
 ) {
     val temperatureUnit by viewModel.temperatureUnit.collectAsStateWithLifecycle()
 
+    SettingsScreenContent(
+        temperatureUnit = temperatureUnit,
+        onTemperatureUnitChanged = { viewModel.setTemperatureUnit(it) },
+        onNavigateBack = onNavigateBack
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SettingsScreenContent(
+    temperatureUnit: TemperatureUnit,
+    onTemperatureUnitChanged: (TemperatureUnit) -> Unit,
+    onNavigateBack: () -> Unit,
+) {
     Scaffold(
         topBar = {
             TopAppBar(
@@ -78,7 +92,7 @@ fun SettingsScreen(
                                 .height(56.dp)
                                 .selectable(
                                     selected = (unit == temperatureUnit),
-                                    onClick = { viewModel.setTemperatureUnit(unit) },
+                                    onClick = { onTemperatureUnitChanged(unit) },
                                     role = Role.RadioButton,
                                 ).padding(horizontal = 16.dp),
                         verticalAlignment = Alignment.CenterVertically,
@@ -96,5 +110,17 @@ fun SettingsScreen(
                 }
             }
         }
+    }
+}
+
+@Preview
+@Composable
+private fun PreviewSettingScreen() {
+    MaterialTheme {
+        SettingsScreenContent(
+            temperatureUnit = TemperatureUnit.CELSIUS,
+            onTemperatureUnitChanged = {},
+            onNavigateBack = {}
+        )
     }
 }
