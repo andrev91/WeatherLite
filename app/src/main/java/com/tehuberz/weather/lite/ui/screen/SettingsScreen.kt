@@ -43,7 +43,7 @@ fun SettingsScreen(
     SettingsScreenContent(
         temperatureUnit = temperatureUnit,
         onTemperatureUnitChanged = { viewModel.setTemperatureUnit(it) },
-        onNavigateBack = onNavigateBack
+        onNavigateBack = onNavigateBack,
     )
 }
 
@@ -120,7 +120,7 @@ private fun PreviewSettingScreen() {
         SettingsScreenContent(
             temperatureUnit = TemperatureUnit.CELSIUS,
             onTemperatureUnitChanged = {},
-            onNavigateBack = {}
+            onNavigateBack = {},
         )
     }
 }
