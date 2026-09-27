@@ -1,40 +1,39 @@
 package com.tehuberz.weather.lite.ui.scaffold
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.tooling.preview.PreviewParameter
+import androidx.compose.ui.tooling.preview.PreviewParameterProvider
 import androidx.compose.ui.unit.dp
 import com.tehuberz.weather.lite.R
 import com.tehuberz.weather.lite.data.local.model.Bookmark
@@ -50,6 +49,8 @@ fun WeatherScaffold(
     onSettingsClick: () -> Unit,
     content: @Composable (PaddingValues) -> Unit,
 ) {
+    var showBookmarks by remember { mutableStateOf(false) }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -58,29 +59,8 @@ fun WeatherScaffold(
                     IconButton(onClick = onSettingsClick) {
                         Icon(Icons.Filled.Settings, contentDescription = stringResource(R.string.cd_settings))
                     }
-                    var expanded by remember { mutableStateOf(false) }
-                    IconButton(onClick = { expanded = true }) {
+                    IconButton(onClick = { showBookmarks = true }) {
                         Icon(Icons.Filled.Bookmark, contentDescription = stringResource(R.string.cd_bookmarks))
-                    }
-                    DropdownMenu(
-                        expanded = expanded,
-                        onDismissRequest = { expanded = false },
-                    ) {
-                        if (uiState.bookmarks.isNotEmpty()) {
-                            BookmarksList(
-                                bookmarks = uiState.bookmarks,
-                                onBookmarkClick = {
-                                    onLoadBookmark(it)
-                                    expanded = false
-                                },
-                                onDeleteClick = onRemoveBookmark,
-                            )
-                        } else {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.scaffold_no_bookmarks_yet_label)) },
-                                onClick = { expanded = false },
-                            )
-                        }
                     }
                 },
             )
@@ -90,6 +70,23 @@ fun WeatherScaffold(
             SnackbarHost(snackBarHostState)
         },
     )
+
+    if (showBookmarks) {
+        val sheetState = rememberModalBottomSheetState()
+        ModalBottomSheet(
+            onDismissRequest = { showBookmarks = false },
+            sheetState = sheetState,
+        ) {
+            BookmarksList(
+                bookmarks = uiState.bookmarks,
+                onBookmarkClick = {
+                    onLoadBookmark(it)
+                    showBookmarks = false
+                },
+                onDeleteClick = onRemoveBookmark,
+            )
+        }
+    }
 }
 
 @Composable
@@ -98,25 +95,40 @@ private fun BookmarksList(
     onBookmarkClick: (Bookmark) -> Unit,
     onDeleteClick: (Bookmark) -> Unit,
 ) {
-    Card(elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(stringResource(R.string.scaffold_bookmarked_locations_label), style = MaterialTheme.typography.titleLarge)
-            Spacer(modifier = Modifier.height(8.dp))
+    Column(modifier = Modifier.padding(bottom = 32.dp)) {
+        Text(
+            text = stringResource(R.string.scaffold_bookmarked_locations_label),
+            style = MaterialTheme.typography.headlineSmall,
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 16.dp),
+        )
+        if (bookmarks.isEmpty()) {
+            Text(
+                text = stringResource(R.string.scaffold_no_bookmarks_yet_label),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                style = MaterialTheme.typography.bodyLarge,
+            )
+        } else {
             bookmarks.forEach { bookmark ->
-                Row(
+                ListItem(
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                    headlineContent = { Text("${bookmark.cityName}, ${bookmark.stateAbbreviation}") },
+                    leadingContent = {
+                        Icon(
+                            Icons.Filled.LocationOn,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                    },
+                    trailingContent = {
+                        IconButton(onClick = { onDeleteClick(bookmark) }) {
+                            Icon(Icons.Filled.Clear, contentDescription = stringResource(R.string.cd_delete_bookmark))
+                        }
+                    },
                     modifier =
                         Modifier
                             .fillMaxWidth()
-                            .clickable { onBookmarkClick(bookmark) }
-                            .padding(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Text("${bookmark.cityName}, ${bookmark.stateAbbreviation}")
-                    IconButton(onClick = { onDeleteClick(bookmark) }) {
-                        Icon(Icons.Filled.Clear, contentDescription = stringResource(R.string.cd_delete_bookmark))
-                    }
-                }
+                            .clickable { onBookmarkClick(bookmark) },
+                )
             }
         }
     }
@@ -133,4 +145,52 @@ fun PreviewScaffold() {
         content = {},
         snackBarHostState = remember { SnackbarHostState() },
     )
+}
+
+@Preview(showBackground = true)
+@Composable
+fun PreviewBookmarksList(
+    @PreviewParameter(BookmarkPreviewParameterProvider::class) bookmarks: List<Bookmark>,
+) {
+    BookmarksList(
+        bookmarks = bookmarks,
+        onBookmarkClick = {},
+        onDeleteClick = {},
+    )
+}
+
+@Preview(showBackground = true)
+@Composable
+fun PreviewBookmarksListEmpty() {
+    BookmarksList(
+        bookmarks = emptyList(),
+        onBookmarkClick = {},
+        onDeleteClick = {},
+    )
+}
+
+private class BookmarkPreviewParameterProvider : PreviewParameterProvider<List<Bookmark>> {
+    override val values =
+        sequenceOf(
+            listOf(
+                Bookmark(
+                    id = 1,
+                    stateName = "Georgia",
+                    stateAbbreviation = "GA",
+                    cityName = "Atlanta",
+                ),
+                Bookmark(
+                    id = 2,
+                    stateName = "New York",
+                    stateAbbreviation = "NY",
+                    cityName = "New York",
+                ),
+                Bookmark(
+                    id = 3,
+                    stateName = "California",
+                    stateAbbreviation = "CA",
+                    cityName = "Los Angeles",
+                ),
+            ),
+        )
 }
