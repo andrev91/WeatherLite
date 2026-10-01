@@ -58,12 +58,16 @@ class WeatherViewModel
         val uiState: StateFlow<WeatherUiState> field = MutableStateFlow(WeatherUiState())
         private val _bookmarkStateChannel = Channel<BookmarkState>()
         val bookmarkStateChannel = _bookmarkStateChannel.receiveAsFlow()
+        private val _permissionPromptChannel = Channel<Unit>(Channel.BUFFERED)
+        val permissionPromptChannel = _permissionPromptChannel.receiveAsFlow()
+
         private var weatherWorkerUId: UUID? = null
 
         init {
             fetchStateList()
             observeBookmarks()
             observeTemperatureUnit()
+            observeLocationExplanationAccepted()
         }
 
         private fun observeTemperatureUnit() {
@@ -78,6 +82,14 @@ class WeatherViewModel
             viewModelScope.launch {
                 locationRepository.getBookmarks().collect { bookmarks ->
                     uiState.update { it.copy(bookmarks = bookmarks) }
+                }
+            }
+        }
+
+        private fun observeLocationExplanationAccepted() {
+            viewModelScope.launch {
+                settingsRepository.locationExplanationAccepted.collect { accepted ->
+                    uiState.update { it.copy(locationExplanationAccepted = accepted) }
                 }
             }
         }
@@ -439,6 +451,72 @@ class WeatherViewModel
         private fun updateWeatherState(update: (currentState: WeatherDataState) -> WeatherDataState) {
             uiState.update { currentState ->
                 currentState.copy(weatherState = update(currentState.weatherState))
+            }
+        }
+
+        fun onUseCurrentLocationClicked(hasPermission: Boolean) {
+            if (uiState.value.isResolvingCurrentLocation) return
+
+            if (hasPermission) {
+                requestWeatherForCurrentLocation()
+                return
+            }
+            if (uiState.value.locationExplanationAccepted) {
+                requestLocationPermissionPrompt()
+            } else {
+                uiState.update { it.copy(showLocationExplanationDialog = true) }
+            }
+        }
+
+        fun acceptLocationExplanation() {
+            uiState.update { it.copy(showLocationExplanationDialog = false) }
+            viewModelScope.launch {
+                settingsRepository.setLocationExplanationAccepted(true)
+                requestLocationPermissionPrompt()
+            }
+        }
+
+        fun denyLocationExplanation() {
+            uiState.update { it.copy(showLocationExplanationDialog = false) }
+        }
+
+        fun onPermissionResult(granted: Boolean) {
+            if (granted) {
+                requestWeatherForCurrentLocation()
+            }
+        }
+
+        private fun requestLocationPermissionPrompt() {
+            viewModelScope.launch {
+                _permissionPromptChannel.send(Unit)
+            }
+        }
+
+        fun requestWeatherForCurrentLocation() {
+            if (uiState.value.isResolvingCurrentLocation) return
+            uiState.update { it.copy(error = null, isResolvingCurrentLocation = true) }
+            viewModelScope.launch {
+                val locatedCity = locationRepository.getCurrentLocatedCity()
+                if (locatedCity == null) {
+                    updateCurrentLocationFailure()
+                    return@launch
+                }
+                uiState.update { it.copy(isResolvingCurrentLocation = false) }
+                setDropdownSelection(STATE, locatedCity.state.name)
+                setDropdownSelection(CITY, locatedCity.city)
+                searchLocation()
+            }
+        }
+
+        private fun updateCurrentLocationFailure() {
+            uiState.update {
+                it.copy(
+                    isResolvingCurrentLocation = false,
+                    error =
+                        UiText.DynamicString(
+                            "Unable to find a location for your current area.",
+                        ),
+                )
             }
         }
 

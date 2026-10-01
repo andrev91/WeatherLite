@@ -8,6 +8,9 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import androidx.work.workDataOf
+import com.tehuberz.weather.lite.api.ApiService
+import com.tehuberz.weather.lite.data.network.model.GeocodingResponse
+import com.tehuberz.weather.lite.network.NetworkModule
 import com.tehuberz.weather.lite.worker.SearchWorker
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -19,6 +22,8 @@ class LocationRemoteDataSource
     @Inject
     constructor(
         private val workManager: WorkManager,
+        private val apiService: ApiService,
+        @NetworkModule.ApiKey private val apiKey: String,
     ) {
         fun fetchLocationCoordinates(searchQuery: String): Flow<Result<Pair<Double, Double>>> =
             callbackFlow {
@@ -72,4 +77,12 @@ class LocationRemoteDataSource
                     liveData.removeObserver(workObserver)
                 }
             }
+
+        suspend fun reverseGeocode(
+            lat: Double,
+            lon: Double,
+        ): List<GeocodingResponse> {
+            val response = apiService.reverseGeocode(lat = lat, lon = lon, apiKey = apiKey)
+            return response.body().orEmpty()
+        }
     }

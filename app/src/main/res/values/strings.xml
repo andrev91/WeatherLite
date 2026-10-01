@@ -21,6 +21,13 @@
     <string name="settings_screen_temperature_unit_label">Temperature Unit</string>
     <string name="scaffold_settings_label">Settings</string>
 
+    <!-- current location -->
+    <string name="weather_screen_use_current_location_label">Use Current Location</string>
+    <string name="location_permission_dialog_title">Access your location</string>
+    <string name="location_permission_dialog_message">WeatherLite needs your location to find the nearest city and its weather. No personal information is stored.</string>
+    <string name="location_permission_dialog_allow">Allow</string>
+    <string name="location_permission_dialog_dismiss">Not now</string>
+
     <!-- errors -->
     <string name="weather_fetch_cancelled_error">Weather fetch canceled.</string>
     <string name="failed_to_parse_weather_data_error">Failed to parse weather data.</string>
@@ -38,6 +45,7 @@
     <string name="cd_delete_bookmark">Delete bookmark</string>
     <string name="cd_clear_selection">Clear selection</string>
     <string name="cd_weather_icon">Weather Icon</string>
+    <string name="cd_use_current_location">Use current location</string>
     <string name="cd_back">Back</string>
 
 </resources>

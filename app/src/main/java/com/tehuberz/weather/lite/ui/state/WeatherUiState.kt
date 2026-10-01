@@ -13,6 +13,9 @@ data class WeatherUiState(
     val error: UiText? = null,
     val bookmarks: List<Bookmark> = emptyList(),
     val bookmarkState: BookmarkState? = null,
+    val isResolvingCurrentLocation: Boolean = false,
+    val showLocationExplanationDialog: Boolean = false,
+    val locationExplanationAccepted: Boolean = false,
 )
 
 data class LocationSelectionState(
