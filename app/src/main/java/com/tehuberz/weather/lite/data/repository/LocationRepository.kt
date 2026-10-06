@@ -141,7 +141,6 @@ class LocationRepository
                 citiesData[state.abbreviation]
                     ?.allCities
                     ?.firstOrNull { it.equals(best.name, ignoreCase = true) }
-                    ?: citiesData[state.abbreviation]?.majorCities?.firstOrNull()
                     ?: best.name
 
             return LocatedCity(state = state, city = cityName)
