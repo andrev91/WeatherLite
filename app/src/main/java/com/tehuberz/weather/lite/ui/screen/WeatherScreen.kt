@@ -24,7 +24,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -32,15 +31,8 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MenuAnchorType
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
@@ -49,15 +41,11 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.TextFieldValue
@@ -76,6 +64,7 @@ import com.tehuberz.weather.lite.R
 import com.tehuberz.weather.lite.data.model.State
 import com.tehuberz.weather.lite.data.model.TemperatureUnit
 import com.tehuberz.weather.lite.ui.animation.WeatherLoadingOrb
+import com.tehuberz.weather.lite.ui.component.SearchableDropDown
 import com.tehuberz.weather.lite.ui.model.WeatherDataPO
 import com.tehuberz.weather.lite.ui.scaffold.WeatherScaffold
 import com.tehuberz.weather.lite.ui.state.LocationSelectionState
@@ -279,7 +268,7 @@ fun WeatherScreenContent(
         SearchableDropDown(
             label = stringResource(R.string.weather_screen_us_state_label),
             testTag = TAG_LOCATION_DESC,
-            options = uiState.locationState.filteredStates.ifEmpty { uiState.locationState.availableStates!! },
+            options = uiState.locationState.filteredStates.ifEmpty { uiState.locationState.availableStates.orEmpty() },
             onClear = { onDropdownClear(LocationType.STATE) },
             searchQuery = uiState.locationState.stateSearchQuery,
             onSearchQueryChanged = { onDropdownSearch(LocationType.STATE, it) },
@@ -376,78 +365,6 @@ fun WeatherScreenContent(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun <T> SearchableDropDown(
-    label: String,
-    testTag: String,
-    options: List<T>,
-    searchQuery: TextFieldValue,
-    onSearchQueryChanged: (TextFieldValue) -> Unit,
-    onOptionSelected: (String) -> Unit,
-    onClear: () -> Unit,
-    isSelected: Boolean = false,
-    optionToString: (T) -> String = { it.toString() },
-) {
-    var expanded by remember { mutableStateOf(false) }
-    val focusController = LocalFocusManager.current
-    val keyboardController = LocalSoftwareKeyboardController.current
-
-    Box(modifier = Modifier.fillMaxWidth(0.8f)) {
-        ExposedDropdownMenuBox(
-            expanded = expanded,
-            onExpandedChange = {
-                expanded = it
-            },
-        ) {
-            OutlinedTextField(
-                modifier =
-                    Modifier
-                        .menuAnchor(MenuAnchorType.PrimaryNotEditable, true)
-                        .fillMaxWidth()
-                        .testTag(testTag),
-                value = searchQuery,
-                onValueChange = {
-                    onSearchQueryChanged(it)
-                    expanded = true // Keep the dropdown open while searching
-                },
-                label = { Text(label) },
-                trailingIcon = {
-                    if (isSelected) {
-                        IconButton(onClick = {
-                            onClear()
-                            expanded = false
-                        }) {
-                            Icon(Icons.Filled.Clear, contentDescription = stringResource(R.string.cd_clear_selection))
-                        }
-                    } else {
-                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
-                    }
-                },
-                singleLine = true,
-            )
-            if (options.isNotEmpty()) {
-                ExposedDropdownMenu(
-                    expanded = expanded,
-                    onDismissRequest = { expanded = false },
-                ) {
-                    options.forEach { option ->
-                        DropdownMenuItem(
-                            text = { Text(optionToString(option)) },
-                            onClick = {
-                                keyboardController?.hide()
-                                focusController.clearFocus()
-                                expanded = false
-                                onOptionSelected(optionToString(option))
-                            },
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
 @Composable
 fun WeatherDetails(
     modifier: Modifier = Modifier,
@@ -499,7 +416,11 @@ fun PreviewWeatherScreenContent_Loading() {
         WeatherScreenContent(
             uiState =
                 WeatherUiState(
-                    LocationSelectionState(isLoadingCities = true, isLoadingStates = true),
+                    LocationSelectionState(
+                        isLoadingCities = true,
+                        isLoadingStates = true,
+                        availableStates = listOf(State("California", "CA"), State("Georgia", "GA")),
+                    ),
                     WeatherDataState(isLoadingWeather = true),
                 ),
             onDropdownSelected = { _, _ -> },
@@ -518,7 +439,11 @@ fun PreviewWeatherScreenContent_Loading_Landscape() {
         WeatherScreenContent(
             uiState =
                 WeatherUiState(
-                    LocationSelectionState(isLoadingCities = true, isLoadingStates = true),
+                    LocationSelectionState(
+                        isLoadingCities = true,
+                        isLoadingStates = true,
+                        availableStates = listOf(State("California", "CA"), State("Georgia", "GA")),
+                    ),
                     WeatherDataState(isLoadingWeather = true),
                 ),
             onDropdownSelected = { _, _ -> },
@@ -552,9 +477,12 @@ fun PreviewWeatherScreenContent_Success() {
                             ),
                         locationState =
                             LocationSelectionState(
+                                availableStates = listOf(State("Georgia", "GA"), State("California", "CA")),
                                 selectedState = State("Georgia", "GA"),
-                                selectedCity = "Dunwoody",
+                                stateSearchQuery = TextFieldValue("Georgia"),
                                 availableCities = listOf("Dunwoody", "Powder Springs, Marietta"),
+                                selectedCity = "Dunwoody",
+                                citySearchQuery = TextFieldValue("Dunwoody"),
                             ),
                     ),
                 onDropdownSelected = { _, _ -> },
@@ -589,9 +517,12 @@ fun PreviewWeatherScreenContent_Success_Landscape() {
                             ),
                         locationState =
                             LocationSelectionState(
+                                availableStates = listOf(State("Georgia", "GA"), State("California", "CA")),
                                 selectedState = State("Georgia", "GA"),
-                                selectedCity = "Dunwoody",
+                                stateSearchQuery = TextFieldValue("Georgia"),
                                 availableCities = listOf("Dunwoody", "Powder Springs, Marietta"),
+                                selectedCity = "Dunwoody",
+                                citySearchQuery = TextFieldValue("Dunwoody"),
                             ),
                     ),
                 onDropdownSelected = { _, _ -> },
@@ -612,7 +543,11 @@ fun PreviewWeatherScreenContent_Error() {
             uiState =
                 WeatherUiState(
                     weatherState = WeatherDataState(isLoadingWeather = false),
-                    locationState = LocationSelectionState(isLoadingStates = false),
+                    locationState =
+                        LocationSelectionState(
+                            isLoadingStates = false,
+                            availableStates = listOf(State("California", "CA"), State("Georgia", "GA")),
+                        ),
                     error = UiText.DynamicString("Network Error"),
                 ),
             onDropdownSelected = { _, _ -> },
@@ -632,7 +567,11 @@ fun PreviewWeatherScreenContent_Error_Landscape() {
             uiState =
                 WeatherUiState(
                     weatherState = WeatherDataState(isLoadingWeather = false),
-                    locationState = LocationSelectionState(isLoadingStates = false),
+                    locationState =
+                        LocationSelectionState(
+                            isLoadingStates = false,
+                            availableStates = listOf(State("California", "CA"), State("Georgia", "GA")),
+                        ),
                     error = UiText.DynamicString("Network Error"),
                 ),
             onDropdownSelected = { _, _ -> },

@@ -48,6 +48,8 @@
     <string name="cd_bookmarks">Bookmarks</string>
     <string name="cd_delete_bookmark">Delete bookmark</string>
     <string name="cd_clear_selection">Clear selection</string>
+    <string name="cd_search">Search</string>
+    <string name="cd_clear_search">Clear search</string>
     <string name="cd_weather_icon">Weather Icon</string>
     <string name="cd_use_current_location">Use current location</string>
     <string name="cd_back">Back</string>
