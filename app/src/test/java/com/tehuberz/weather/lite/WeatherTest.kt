@@ -13,8 +13,11 @@ import com.tehuberz.weather.lite.data.model.StateCities
 import com.tehuberz.weather.lite.data.repository.LocationRepository
 import com.tehuberz.weather.lite.data.repository.SettingsRepository
 import com.tehuberz.weather.lite.ui.state.LocationType
+import com.tehuberz.weather.lite.util.UiText
 import com.tehuberz.weather.lite.viewmodel.WeatherViewModel
+import junit.framework.TestCase.assertEquals
 import junit.framework.TestCase.assertFalse
+import junit.framework.TestCase.assertNotNull
 import junit.framework.TestCase.assertNull
 import junit.framework.TestCase.assertTrue
 import kotlinx.coroutines.Dispatchers
@@ -56,7 +59,6 @@ class WeatherTest {
     @Mock
     private lateinit var mockSettingsRepository: SettingsRepository
 
-    @Mock
     private lateinit var viewModel: WeatherViewModel
 
     @Before
@@ -84,9 +86,17 @@ class WeatherTest {
         whenever(mockWorkManager.getWorkInfoByIdFlow(any())).thenReturn(mockWorkInfo)
         whenever(mockLocationRepository.getBookmarks()).thenReturn(kotlinx.coroutines.flow.emptyFlow())
         whenever(mockLocationRepository.getStates()).thenReturn(emptyList())
+        whenever(mockLocationRepository.getOrFetchLocation(any())).thenReturn(kotlinx.coroutines.flow.emptyFlow())
         whenever(mockSettingsRepository.temperatureUnit).thenReturn(kotlinx.coroutines.flow.emptyFlow())
+        whenever(mockSettingsRepository.locationExplanationAccepted).thenReturn(kotlinx.coroutines.flow.emptyFlow())
+        whenever(mockSettingsRepository.locationPermissionRequested).thenReturn(kotlinx.coroutines.flow.emptyFlow())
 
-        viewModel = WeatherViewModel(mockWorkManager, mockLocationRepository, mockSettingsRepository)
+        viewModel =
+            WeatherViewModel(
+                mockWorkManager,
+                mockLocationRepository,
+                mockSettingsRepository,
+            )
     }
 
     @After
@@ -176,5 +186,354 @@ class WeatherTest {
             assertTrue(filtered.contains("San Francisco"))
             assertTrue(filtered.contains("San Jose"))
             assertFalse(filtered.contains("Los Angeles"))
+        }
+
+    @Test
+    fun `requestWeatherForCurrentLocation resolves coordinates to nearest city and fetches weather`() =
+        runTest {
+            val mockLocation =
+                com.tehuberz.weather.lite.data.local.model
+                    .Location(name = "New York", latitude = 40.7128, longitude = -74.0060)
+            val nyState = State("New York", "NY")
+            val locatedCity =
+                com.tehuberz.weather.lite.data.model
+                    .LocatedCity(state = nyState, city = "New York City")
+
+            whenever(mockLocationRepository.getCurrentLocatedCity()).thenReturn(locatedCity)
+            whenever(mockLocationRepository.getStateFromString("New York")).thenReturn(nyState)
+            whenever(mockLocationRepository.getMajorCitiesByState("NY")).thenReturn(listOf("New York City"))
+            whenever(mockLocationRepository.getOrFetchLocation(any())).thenReturn(MutableStateFlow(Result.success(mockLocation)))
+
+            viewModel.requestWeatherForCurrentLocation()
+            advanceUntilIdle()
+
+            val state = viewModel.uiState.value.locationState
+            assertEquals("New York", state.selectedState?.name)
+            assertEquals("New York City", state.selectedCity)
+
+            val weatherRequestCaptor = argumentCaptor<OneTimeWorkRequest>()
+            Mockito.verify(mockWorkManager).enqueueUniqueWork(
+                any<String>(),
+                any<ExistingWorkPolicy>(),
+                weatherRequestCaptor.capture(),
+            )
+            val weatherWorkRequest = weatherRequestCaptor.firstValue
+            assertTrue(
+                weatherWorkRequest.workSpec.input.getDouble(
+                    com.tehuberz.weather.lite.worker.WeatherWorker.WEATHER_LAT_KEY,
+                    0.0,
+                ) == 40.7128,
+            )
+        }
+
+    @Test
+    fun `requestWeatherForCurrentLocation with resolved coordinates directly fetches weather without geocoding`() =
+        runTest {
+            val nyState = State("New York", "NY")
+            val locatedCity =
+                com.tehuberz.weather.lite.data.model
+                    .LocatedCity(state = nyState, city = "New York City", latitude = 40.7128, longitude = -74.0060)
+
+            whenever(mockLocationRepository.getCurrentLocatedCity()).thenReturn(locatedCity)
+            whenever(mockLocationRepository.getMajorCitiesByState("NY")).thenReturn(listOf("New York City"))
+
+            viewModel.requestWeatherForCurrentLocation()
+            advanceUntilIdle()
+
+            val state = viewModel.uiState.value.locationState
+            assertEquals("New York", state.selectedState?.name)
+            assertEquals("New York City", state.selectedCity)
+            assertFalse(state.isLoadingCities)
+
+            // Should bypass geocoding since coordinates are already known
+            Mockito.verify(mockLocationRepository, Mockito.never()).getOrFetchLocation(any())
+
+            val weatherRequestCaptor = argumentCaptor<OneTimeWorkRequest>()
+            Mockito.verify(mockWorkManager).enqueueUniqueWork(
+                any<String>(),
+                any<ExistingWorkPolicy>(),
+                weatherRequestCaptor.capture(),
+            )
+            val weatherWorkRequest = weatherRequestCaptor.firstValue
+            assertTrue(
+                weatherWorkRequest.workSpec.input.getDouble(
+                    com.tehuberz.weather.lite.worker.WeatherWorker.WEATHER_LAT_KEY,
+                    0.0,
+                ) == 40.7128,
+            )
+            assertTrue(
+                weatherWorkRequest.workSpec.input.getDouble(
+                    com.tehuberz.weather.lite.worker.WeatherWorker.WEATHER_LON_KEY,
+                    0.0,
+                ) == -74.0060,
+            )
+        }
+
+    @Test
+    fun `requestWeatherForCurrentLocation surfaces error when no fix available`() =
+        runTest {
+            whenever(mockLocationRepository.getCurrentLocatedCity()).thenReturn(null)
+
+            viewModel.requestWeatherForCurrentLocation()
+            advanceUntilIdle()
+
+            val state = viewModel.uiState.value
+            assertFalse(state.isResolvingCurrentLocation)
+            assertNotNull(state.error)
+        }
+
+    @Test
+    fun `requestWeatherForCurrentLocation handles repository exception gracefully`() =
+        runTest {
+            whenever(mockLocationRepository.getCurrentLocatedCity()).thenThrow(RuntimeException("GPS error"))
+
+            viewModel.requestWeatherForCurrentLocation()
+            advanceUntilIdle()
+
+            val state = viewModel.uiState.value
+            assertFalse(state.isResolvingCurrentLocation)
+            assertNotNull(state.error)
+        }
+
+    @Test
+    fun `onUseCurrentLocationClicked when permission already granted resolves weather`() =
+        runTest {
+            val locatedCity =
+                com.tehuberz.weather.lite.data.model
+                    .LocatedCity(
+                        state = State("New York", "NY"),
+                        city = "New York City",
+                        latitude = 40.7128,
+                        longitude = -74.0060,
+                    )
+            whenever(mockLocationRepository.getCurrentLocatedCity()).thenReturn(locatedCity)
+            whenever(mockLocationRepository.getMajorCitiesByState("NY")).thenReturn(listOf("New York City"))
+
+            viewModel.onUseCurrentLocationClicked(hasPermission = true)
+            advanceUntilIdle()
+
+            val state = viewModel.uiState.value
+            assertEquals("New York", state.locationState.selectedState?.name)
+            assertEquals("New York City", state.locationState.selectedCity)
+            assertFalse(state.isResolvingCurrentLocation)
+            assertFalse(state.showLocationExplanationDialog)
+        }
+
+    @Test
+    fun `onUseCurrentLocationClicked when permission not granted and explanation not accepted shows dialog`() =
+        runTest {
+            viewModel.onUseCurrentLocationClicked(hasPermission = false)
+            advanceUntilIdle()
+
+            assertTrue(viewModel.uiState.value.showLocationExplanationDialog)
+        }
+
+    @Test
+    fun `onUseCurrentLocationClicked when permission not requested shows explanation dialog`() =
+        runTest {
+            viewModel.onUseCurrentLocationClicked(hasPermission = false, shouldShowRationale = false)
+            advanceUntilIdle()
+
+            val state = viewModel.uiState.value
+            assertTrue(state.showLocationExplanationDialog)
+            assertFalse(state.showLocationSettingsDialog)
+        }
+
+    @Test
+    fun `onUseCurrentLocationClicked when permission permanently denied shows settings dialog`() =
+        runTest {
+            val requestedFlow = MutableStateFlow(true)
+            whenever(mockSettingsRepository.locationPermissionRequested).thenReturn(requestedFlow)
+            viewModel =
+                WeatherViewModel(
+                    mockWorkManager,
+                    mockLocationRepository,
+                    mockSettingsRepository,
+                )
+            advanceUntilIdle()
+
+            viewModel.onUseCurrentLocationClicked(hasPermission = false, shouldShowRationale = false)
+            advanceUntilIdle()
+
+            val state = viewModel.uiState.value
+            assertTrue(state.showLocationSettingsDialog)
+            assertFalse(state.showLocationExplanationDialog)
+        }
+
+    @Test
+    fun `onUseCurrentLocationClicked when permission denied with rationale shows explanation dialog`() =
+        runTest {
+            val requestedFlow = MutableStateFlow(true)
+            whenever(mockSettingsRepository.locationPermissionRequested).thenReturn(requestedFlow)
+            viewModel =
+                WeatherViewModel(
+                    mockWorkManager,
+                    mockLocationRepository,
+                    mockSettingsRepository,
+                )
+            advanceUntilIdle()
+
+            viewModel.onUseCurrentLocationClicked(hasPermission = false, shouldShowRationale = true)
+            advanceUntilIdle()
+
+            val state = viewModel.uiState.value
+            assertFalse(state.showLocationSettingsDialog)
+            assertTrue(state.showLocationExplanationDialog)
+        }
+
+    @Test
+    fun `acceptLocationExplanation saves preference and emits permission prompt`() =
+        runTest {
+            viewModel.permissionPromptChannel.test {
+                viewModel.acceptLocationExplanation()
+                assertEquals(Unit, awaitItem())
+                Mockito.verify(mockSettingsRepository).setLocationPermissionRequested(true)
+                assertFalse(viewModel.uiState.value.showLocationExplanationDialog)
+            }
+        }
+
+    @Test
+    fun `dismissLocationExplanation hides dialog without saving or prompting`() =
+        runTest {
+            viewModel.onUseCurrentLocationClicked(hasPermission = false)
+            assertTrue(viewModel.uiState.value.showLocationExplanationDialog)
+
+            viewModel.denyLocationExplanation()
+            assertFalse(viewModel.uiState.value.showLocationExplanationDialog)
+            Mockito.verify(mockSettingsRepository, Mockito.never()).setLocationPermissionRequested(any())
+        }
+
+    @Test
+    fun `dismissLocationSettingsDialog hides settings dialog`() =
+        runTest {
+            viewModel.onPermissionResult(granted = false, shouldShowRationale = false)
+            assertTrue(viewModel.uiState.value.showLocationSettingsDialog)
+
+            viewModel.dismissLocationSettingsDialog()
+            assertFalse(viewModel.uiState.value.showLocationSettingsDialog)
+        }
+
+    @Test
+    fun `onPermissionResult when granted resolves weather`() =
+        runTest {
+            val locatedCity =
+                com.tehuberz.weather.lite.data.model
+                    .LocatedCity(
+                        state = State("New York", "NY"),
+                        city = "New York City",
+                        latitude = 40.7128,
+                        longitude = -74.0060,
+                    )
+            whenever(mockLocationRepository.getCurrentLocatedCity()).thenReturn(locatedCity)
+            whenever(mockLocationRepository.getMajorCitiesByState("NY")).thenReturn(listOf("New York City"))
+
+            viewModel.onPermissionResult(granted = true)
+            advanceUntilIdle()
+
+            val state = viewModel.uiState.value
+            assertEquals("New York", state.locationState.selectedState?.name)
+            assertEquals("New York City", state.locationState.selectedCity)
+            assertFalse(state.isResolvingCurrentLocation)
+        }
+
+    @Test
+    fun `onPermissionResult when denied with rationale surfaces error without showing settings dialog`() =
+        runTest {
+            viewModel.onPermissionResult(granted = false, shouldShowRationale = true)
+            advanceUntilIdle()
+
+            val state = viewModel.uiState.value
+            assertFalse(state.isResolvingCurrentLocation)
+            assertEquals(
+                R.string.location_permission_denied_error,
+                (state.error as? UiText.StringResource)?.resId,
+            )
+            assertFalse(state.showLocationSettingsDialog)
+            Mockito.verify(mockSettingsRepository).setLocationPermissionRequested(true)
+        }
+
+    @Test
+    fun `onPermissionResult when permanently denied surfaces error and shows settings dialog`() =
+        runTest {
+            viewModel.onPermissionResult(granted = false, shouldShowRationale = false)
+            advanceUntilIdle()
+
+            val state = viewModel.uiState.value
+            assertFalse(state.isResolvingCurrentLocation)
+            assertEquals(
+                R.string.location_permission_denied_error,
+                (state.error as? UiText.StringResource)?.resId,
+            )
+            assertTrue(state.showLocationSettingsDialog)
+            Mockito.verify(mockSettingsRepository).setLocationPermissionRequested(true)
+        }
+
+    @Test
+    fun `requestWeatherForCurrentLocation when at different location updates location and resets weatherContent`() =
+        runTest {
+            val nyState = State("New York", "NY")
+            val caState = State("California", "CA")
+
+            // Currently selected: California / Los Angeles
+            whenever(mockLocationRepository.getStateFromString("California")).thenReturn(caState)
+            whenever(mockLocationRepository.getMajorCitiesByState("CA")).thenReturn(listOf("Los Angeles"))
+            viewModel.setDropdownSelection(LocationType.STATE, "California")
+            viewModel.setDropdownSelection(LocationType.CITY, "Los Angeles")
+            advanceUntilIdle()
+
+            // Current location resolves to New York / New York City
+            val locatedCity =
+                com.tehuberz.weather.lite.data.model
+                    .LocatedCity(state = nyState, city = "New York City", latitude = 40.7128, longitude = -74.0060)
+            whenever(mockLocationRepository.getCurrentLocatedCity()).thenReturn(locatedCity)
+            whenever(mockLocationRepository.getMajorCitiesByState("NY")).thenReturn(listOf("New York City"))
+
+            viewModel.requestWeatherForCurrentLocation()
+            advanceUntilIdle()
+
+            val state = viewModel.uiState.value
+            assertEquals("New York", state.locationState.selectedState?.name)
+            assertEquals("New York City", state.locationState.selectedCity)
+        }
+
+    @Test
+    fun `requestWeatherForCurrentLocation when at same location retains weatherContent in place`() =
+        runTest {
+            val nyState = State("New York", "NY")
+            val locatedCity =
+                com.tehuberz.weather.lite.data.model
+                    .LocatedCity(state = nyState, city = "New York City", latitude = 40.7128, longitude = -74.0060)
+
+            whenever(mockLocationRepository.getCurrentLocatedCity()).thenReturn(locatedCity)
+            whenever(mockLocationRepository.getMajorCitiesByState("NY")).thenReturn(listOf("New York City"))
+
+            // First resolve to NY
+            viewModel.requestWeatherForCurrentLocation()
+            advanceUntilIdle()
+
+            // Simulate weather loaded
+            val initialWeather =
+                com.tehuberz.weather.lite.ui.model.WeatherDataPO(
+                    weatherDescription =
+                        com.tehuberz.weather.lite.util.UiText
+                            .DynamicString("Sunny"),
+                    weatherIcon = null,
+                    temperatureFahrenheit =
+                        com.tehuberz.weather.lite.util.UiText
+                            .DynamicString("72°F"),
+                    temperatureCelsius =
+                        com.tehuberz.weather.lite.util.UiText
+                            .DynamicString("22°C"),
+                    observedAt =
+                        com.tehuberz.weather.lite.util.UiText
+                            .DynamicString("12:00"),
+                )
+            // Trigger again while already at same location with weather present
+            viewModel.requestWeatherForCurrentLocation()
+
+            // Dropdowns should remain the same
+            val state = viewModel.uiState.value
+            assertEquals("New York", state.locationState.selectedState?.name)
+            assertEquals("New York City", state.locationState.selectedCity)
         }
 }

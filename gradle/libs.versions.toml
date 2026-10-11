@@ -12,6 +12,7 @@ composeBom = "2025.05.00"
 hilt = "2.59.1"
 hiltNavigationCompose = "1.2.0"
 hiltWork = "1.2.0"
+playServicesLocation = "21.3.0"
 room = "2.8.4"
 work = "2.11.2"
 serializationJson = "1.8.0"
@@ -23,6 +24,7 @@ coreTesting = "2.2.0"
 mockitoCore = "5.23.0"
 mockitoKotlin = "6.3.0"
 kotlinxCoroutinesTest = "1.10.2"
+kotlinxCoroutinesPlayServices = "1.10.2"
 turbine = "1.2.1"
 guava = "33.6.0-jre"
 runner = "1.7.0"
@@ -60,6 +62,8 @@ androidx-hilt-navigation-compose = { group = "androidx.hilt", name = "hilt-navig
 androidx-hilt-work = { group = "androidx.hilt", name = "hilt-work", version.ref = "hiltWork" }
 androidx-hilt-compiler = { group = "androidx.hilt", name = "hilt-compiler", version.ref = "hiltWork" }
 
+play-services-location = { group = "com.google.android.gms", name = "play-services-location", version.ref = "playServicesLocation" }
+
 androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
 androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
 androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
@@ -78,6 +82,7 @@ androidx-core-testing = { group = "androidx.arch.core", name = "core-testing", v
 mockito-core = { group = "org.mockito", name = "mockito-core", version.ref = "mockitoCore" }
 mockito-kotlin = { group = "org.mockito.kotlin", name = "mockito-kotlin", version.ref = "mockitoKotlin" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "kotlinxCoroutinesTest" }
+kotlinx-coroutines-play-services = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-play-services", version.ref = "kotlinxCoroutinesPlayServices" }
 turbine = { group = "app.cash.turbine", name = "turbine", version.ref = "turbine" }
 guava = { group = "com.google.guava", name = "guava", version.ref = "guava" }
 androidx-runner = { group = "androidx.test", name = "runner", version.ref = "runner" }

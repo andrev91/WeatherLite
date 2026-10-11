@@ -14,6 +14,7 @@ import androidx.work.WorkManager
 import androidx.work.workDataOf
 import com.tehuberz.weather.lite.R
 import com.tehuberz.weather.lite.data.local.model.Bookmark
+import com.tehuberz.weather.lite.data.model.LocatedCity
 import com.tehuberz.weather.lite.data.network.model.OpenWeatherResponseDTO
 import com.tehuberz.weather.lite.data.repository.LocationRepository
 import com.tehuberz.weather.lite.data.repository.SettingsRepository
@@ -58,12 +59,16 @@ class WeatherViewModel
         val uiState: StateFlow<WeatherUiState> field = MutableStateFlow(WeatherUiState())
         private val _bookmarkStateChannel = Channel<BookmarkState>()
         val bookmarkStateChannel = _bookmarkStateChannel.receiveAsFlow()
+        private val _permissionPromptChannel = Channel<Unit>(Channel.BUFFERED)
+        val permissionPromptChannel = _permissionPromptChannel.receiveAsFlow()
+
         private var weatherWorkerUId: UUID? = null
 
         init {
             fetchStateList()
             observeBookmarks()
             observeTemperatureUnit()
+            observeLocationPermissionRequested()
         }
 
         private fun observeTemperatureUnit() {
@@ -78,6 +83,19 @@ class WeatherViewModel
             viewModelScope.launch {
                 locationRepository.getBookmarks().collect { bookmarks ->
                     uiState.update { it.copy(bookmarks = bookmarks) }
+                }
+            }
+        }
+
+        private fun observeLocationPermissionRequested() {
+            viewModelScope.launch {
+                settingsRepository.locationPermissionRequested.collect { requested ->
+                    uiState.update {
+                        it.copy(
+                            locationPermissionRequested = requested,
+                            locationExplanationAccepted = requested,
+                        )
+                    }
                 }
             }
         }
@@ -257,8 +275,14 @@ class WeatherViewModel
         private fun fetchWeather(
             lat: Double,
             lon: Double,
+            keepExistingWeather: Boolean = false,
         ) {
-            updateWeatherState { currentState -> currentState.copy(weatherContent = null) }
+            updateWeatherState { currentState ->
+                currentState.copy(
+                    weatherContent = if (keepExistingWeather) currentState.weatherContent else null,
+                    isLoadingWeather = true,
+                )
+            }
             uiState.update { it.copy(error = null) }
             val weatherRequest =
                 OneTimeWorkRequestBuilder<WeatherWorker>()
@@ -278,13 +302,18 @@ class WeatherViewModel
             )
         }
 
-        fun searchLocation() {
+        fun searchLocation(keepExistingWeather: Boolean = false) {
             if (uiState.value.locationState.selectedState == null || uiState.value.locationState.selectedCity == null) {
                 uiState.update { it.copy(error = UiText.DynamicString("Please select a state and city.")) }
                 return
             }
             if (uiState.value.weatherState.isLoadingWeather) return
-            updateWeatherState { currentState -> currentState.copy(weatherContent = null, isLoadingWeather = true) }
+            updateWeatherState { currentState ->
+                currentState.copy(
+                    weatherContent = if (keepExistingWeather) currentState.weatherContent else null,
+                    isLoadingWeather = true,
+                )
+            }
             uiState.update { it.copy(error = null) }
             val state =
                 uiState.value.locationState.selectedState
@@ -298,8 +327,9 @@ class WeatherViewModel
                         .collect { result ->
                             result
                                 .onSuccess { location ->
-                                    fetchWeather(location.latitude, location.longitude)
+                                    fetchWeather(location.latitude, location.longitude, keepExistingWeather)
                                 }.onFailure { error ->
+                                    updateWeatherState { currentState -> currentState.copy(isLoadingWeather = false) }
                                     uiState.update { it.copy(error = UiText.DynamicString(error.message!!)) }
                                 }
                         }
@@ -439,6 +469,130 @@ class WeatherViewModel
         private fun updateWeatherState(update: (currentState: WeatherDataState) -> WeatherDataState) {
             uiState.update { currentState ->
                 currentState.copy(weatherState = update(currentState.weatherState))
+            }
+        }
+
+        fun onUseCurrentLocationClicked(
+            hasPermission: Boolean,
+            shouldShowRationale: Boolean = false,
+        ) {
+            if (uiState.value.isResolvingCurrentLocation) return
+            uiState.update { it.copy(error = null) }
+
+            if (hasPermission) {
+                requestWeatherForCurrentLocation()
+                return
+            }
+
+            if (uiState.value.locationPermissionRequested && !shouldShowRationale) {
+                uiState.update { it.copy(showLocationSettingsDialog = true) }
+                return
+            }
+
+            uiState.update { it.copy(showLocationExplanationDialog = true) }
+        }
+
+        fun acceptLocationExplanation() {
+            uiState.update { it.copy(showLocationExplanationDialog = false) }
+            viewModelScope.launch {
+                settingsRepository.setLocationPermissionRequested(true)
+                requestLocationPermissionPrompt()
+            }
+        }
+
+        fun denyLocationExplanation() {
+            uiState.update { it.copy(showLocationExplanationDialog = false) }
+        }
+
+        fun dismissLocationSettingsDialog() {
+            uiState.update { it.copy(showLocationSettingsDialog = false) }
+        }
+
+        fun onPermissionResult(
+            granted: Boolean,
+            shouldShowRationale: Boolean = false,
+        ) {
+            viewModelScope.launch {
+                settingsRepository.setLocationPermissionRequested(true)
+            }
+            if (granted) {
+                requestWeatherForCurrentLocation()
+            } else {
+                uiState.update {
+                    it.copy(
+                        error = UiText.StringResource(R.string.location_permission_denied_error),
+                        showLocationSettingsDialog = !shouldShowRationale,
+                    )
+                }
+            }
+        }
+
+        private fun requestLocationPermissionPrompt() {
+            viewModelScope.launch {
+                _permissionPromptChannel.send(Unit)
+            }
+        }
+
+        fun requestWeatherForCurrentLocation() {
+            if (uiState.value.isResolvingCurrentLocation) return
+            uiState.update { it.copy(error = null, isResolvingCurrentLocation = true) }
+            viewModelScope.launch {
+                try {
+                    val locatedCity = locationRepository.getCurrentLocatedCity()
+                    if (locatedCity == null) {
+                        updateCurrentLocationFailure()
+                        return@launch
+                    }
+                    applyLocatedCityAndFetchWeather(locatedCity)
+                } catch (_: Exception) {
+                    updateCurrentLocationFailure()
+                } finally {
+                    uiState.update { it.copy(isResolvingCurrentLocation = false) }
+                }
+            }
+        }
+
+        private fun applyLocatedCityAndFetchWeather(locatedCity: LocatedCity) {
+            val currentLocationState = uiState.value.locationState
+            val isSameLocation =
+                currentLocationState.selectedState == locatedCity.state &&
+                    currentLocationState.selectedCity == locatedCity.city
+
+            if (!isSameLocation) {
+                val cities = locationRepository.getMajorCitiesByState(locatedCity.state.abbreviation)
+                updateLocationState { currentState ->
+                    currentState.copy(
+                        selectedState = locatedCity.state,
+                        isLoadingStates = false,
+                        isLoadingCities = false,
+                        availableCities = cities,
+                        filteredCities = emptyList(),
+                        selectedCity = locatedCity.city,
+                        stateSearchQuery = TextFieldValue(locatedCity.state.name),
+                        citySearchQuery = TextFieldValue(locatedCity.city),
+                    )
+                }
+                updateWeatherState { currentState -> currentState.copy(weatherContent = null) }
+            }
+
+            uiState.update { it.copy(error = null, isResolvingCurrentLocation = false) }
+            val keepExisting = isSameLocation && uiState.value.weatherState.weatherContent != null
+            if (locatedCity.latitude != null && locatedCity.longitude != null) {
+                fetchWeather(locatedCity.latitude, locatedCity.longitude, keepExistingWeather = keepExisting)
+            } else {
+                searchLocation(keepExistingWeather = keepExisting)
+            }
+        }
+
+        private fun updateCurrentLocationFailure() {
+            uiState.update {
+                it.copy(
+                    isResolvingCurrentLocation = false,
+                    error =
+                        UiText.DynamicString(
+                            "Unable to find a location for your current area.",
+                        ),
+                )
             }
         }
 

@@ -21,4 +21,12 @@ interface ApiService {
         @Query("limit") limit: Int = 1,
         @Query("appid") apiKey: String,
     ): Response<List<GeocodingResponse>>
+
+    @GET("geo/1.0/reverse")
+    suspend fun reverseGeocode(
+        @Query("lat") lat: Double,
+        @Query("lon") lon: Double,
+        @Query("limit") limit: Int = 1,
+        @Query("appid") apiKey: String,
+    ): Response<List<GeocodingResponse>>
 }

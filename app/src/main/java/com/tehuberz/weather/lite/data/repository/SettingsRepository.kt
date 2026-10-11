@@ -2,6 +2,7 @@ package com.tehuberz.weather.lite.data.repository
 
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -20,6 +21,9 @@ class SettingsRepository
         private val dataStore: DataStore<Preferences>,
     ) {
         private val unitKey = stringPreferencesKey("temperature_unit")
+
+        private val locationExplanationAcceptedKey = booleanPreferencesKey("location_explanation_accepted")
+        private val locationPermissionRequestedKey = booleanPreferencesKey("location_permission_requested")
 
         val temperatureUnit: Flow<TemperatureUnit> =
             dataStore.data
@@ -45,6 +49,45 @@ class SettingsRepository
         suspend fun setTemperatureUnit(unit: TemperatureUnit) {
             dataStore.edit { preferences ->
                 preferences[unitKey] = unit.name
+            }
+        }
+
+        val locationExplanationAccepted: Flow<Boolean> =
+            dataStore.data
+                .catch { exception ->
+                    if (exception is IOException) {
+                        emit(emptyPreferences())
+                    } else {
+                        throw exception
+                    }
+                }.map { preferences ->
+                    preferences[locationExplanationAcceptedKey] ?: false
+                }
+
+        suspend fun setLocationExplanationAccepted(accepted: Boolean) {
+            dataStore.edit { preferences ->
+                preferences[locationExplanationAcceptedKey] = accepted
+            }
+        }
+
+        val locationPermissionRequested: Flow<Boolean> =
+            dataStore.data
+                .catch { exception ->
+                    if (exception is IOException) {
+                        emit(emptyPreferences())
+                    } else {
+                        throw exception
+                    }
+                }.map { preferences ->
+                    preferences[locationPermissionRequestedKey]
+                        ?: preferences[locationExplanationAcceptedKey]
+                        ?: false
+                }
+
+        suspend fun setLocationPermissionRequested(requested: Boolean) {
+            dataStore.edit { preferences ->
+                preferences[locationPermissionRequestedKey] = requested
+                preferences[locationExplanationAcceptedKey] = requested
             }
         }
     }
