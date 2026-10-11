@@ -9,4 +9,6 @@ package com.tehuberz.weather.lite.data.model
 data class LocatedCity(
     val state: State,
     val city: String,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
 )

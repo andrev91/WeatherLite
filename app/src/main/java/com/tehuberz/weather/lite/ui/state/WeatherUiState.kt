@@ -15,6 +15,8 @@ data class WeatherUiState(
     val bookmarkState: BookmarkState? = null,
     val isResolvingCurrentLocation: Boolean = false,
     val showLocationExplanationDialog: Boolean = false,
+    val showLocationSettingsDialog: Boolean = false,
+    val locationPermissionRequested: Boolean = false,
     val locationExplanationAccepted: Boolean = false,
 )
 

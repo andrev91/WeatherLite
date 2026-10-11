@@ -143,7 +143,7 @@ class LocationRepository
                     ?.firstOrNull { it.equals(best.name, ignoreCase = true) }
                     ?: best.name
 
-            return LocatedCity(state = state, city = cityName)
+            return LocatedCity(state = state, city = cityName, latitude = lat, longitude = lon)
         }
 
         /**
@@ -151,7 +151,13 @@ class LocationRepository
          * to the nearest supported US city in the app's internal database.
          */
         suspend fun getCurrentLocatedCity(): LocatedCity? {
-            val coordinates = locationProvider.getLastKnownCoordinates() ?: return null
+            val coordinates =
+                try {
+                    locationProvider.getLastKnownCoordinates()
+                } catch (e: Exception) {
+                    Log.e("LocationRepository", "Error obtaining device coordinates", e)
+                    null
+                } ?: return null
             return findNearestCity(coordinates.latitude, coordinates.longitude)
         }
     }

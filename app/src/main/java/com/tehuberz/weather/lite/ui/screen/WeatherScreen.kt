@@ -1,8 +1,13 @@
 package com.tehuberz.weather.lite.ui.screen
 
 import android.Manifest
+import android.app.Activity
 import android.content.Context
+import android.content.ContextWrapper
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -13,6 +18,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -48,6 +54,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -57,6 +64,7 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
@@ -67,6 +75,7 @@ import coil.compose.AsyncImage
 import com.tehuberz.weather.lite.R
 import com.tehuberz.weather.lite.data.model.State
 import com.tehuberz.weather.lite.data.model.TemperatureUnit
+import com.tehuberz.weather.lite.ui.animation.WeatherLoadingOrb
 import com.tehuberz.weather.lite.ui.model.WeatherDataPO
 import com.tehuberz.weather.lite.ui.scaffold.WeatherScaffold
 import com.tehuberz.weather.lite.ui.state.LocationSelectionState
@@ -110,7 +119,10 @@ fun WeatherScreen(
             val granted =
                 permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
                     permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
-            viewModel.onPermissionResult(granted)
+            viewModel.onPermissionResult(
+                granted = granted,
+                shouldShowRationale = shouldShowLocationPermissionRationale(context),
+            )
         }
 
     LaunchedEffect(viewModel.permissionPromptChannel, lifecycleOwner) {
@@ -139,10 +151,13 @@ fun WeatherScreen(
             onDropdownSearch = { locationType, search -> viewModel.searchDropdownList(locationType, search) },
             onDropdownClear = { viewModel.clearDropdownSelection(it) },
             onDropdownSelected = { locationType, location -> viewModel.setDropdownSelection(locationType, location) },
-            onRefreshClicked = { viewModel.searchLocation() },
+            onRefreshClicked = { viewModel.searchLocation(keepExistingWeather = true) },
             onAddBookmark = { viewModel.addBookmark() },
             onUseCurrentLocation = {
-                viewModel.onUseCurrentLocationClicked(hasLocationPermission(context))
+                viewModel.onUseCurrentLocationClicked(
+                    hasPermission = hasLocationPermission(context),
+                    shouldShowRationale = shouldShowLocationPermissionRationale(context),
+                )
             },
         )
     }
@@ -153,12 +168,64 @@ fun WeatherScreen(
             onAllow = { viewModel.acceptLocationExplanation() },
         )
     }
+
+    if (uiState.showLocationSettingsDialog) {
+        LocationSettingsDialog(
+            onDismiss = { viewModel.dismissLocationSettingsDialog() },
+            onOpenSettings = {
+                viewModel.dismissLocationSettingsDialog()
+                val intent =
+                    Intent(
+                        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                        Uri.fromParts("package", context.packageName, null),
+                    )
+                context.startActivity(intent)
+            },
+        )
+    }
+}
+
+private fun Context.findActivity(): Activity? {
+    var ctx = this
+    while (ctx is ContextWrapper) {
+        if (ctx is Activity) return ctx
+        ctx = ctx.baseContext
+    }
+    return null
+}
+
+private fun shouldShowLocationPermissionRationale(context: Context): Boolean {
+    val activity = context.findActivity() ?: return false
+    return ActivityCompat.shouldShowRequestPermissionRationale(activity, Manifest.permission.ACCESS_FINE_LOCATION) ||
+        ActivityCompat.shouldShowRequestPermissionRationale(activity, Manifest.permission.ACCESS_COARSE_LOCATION)
 }
 
 private fun hasLocationPermission(context: Context): Boolean {
     val fine = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
     val coarse = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
     return fine || coarse
+}
+
+@Composable
+private fun LocationSettingsDialog(
+    onDismiss: () -> Unit,
+    onOpenSettings: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.location_settings_dialog_title)) },
+        text = { Text(stringResource(R.string.location_settings_dialog_message)) },
+        confirmButton = {
+            TextButton(onClick = onOpenSettings) {
+                Text(stringResource(R.string.location_settings_dialog_open_settings))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.location_permission_dialog_dismiss))
+            }
+        },
+    )
 }
 
 @Composable
@@ -233,16 +300,18 @@ fun WeatherScreenContent(
             ) { it }
             Spacer(Modifier.height(16.dp))
         }
-        if ((
+        val isLoading =
+            (
                 uiState.locationState.isLoadingStates ||
                     uiState.locationState.isLoadingCities ||
                     uiState.weatherState.isLoadingWeather ||
                     uiState.isResolvingCurrentLocation
-            ) &&
-            uiState.error == null
-        ) {
-            CircularProgressIndicator(modifier = Modifier.testTag(TAG_PROGRESS))
-            Text(text = stringResource(R.string.weather_screen_loading_text), modifier = Modifier.padding(8.dp))
+            ) && uiState.error == null
+        if (isLoading && uiState.weatherState.weatherContent == null) {
+            WeatherLoadingOrb(
+                modifier = Modifier.testTag(TAG_PROGRESS).padding(8.dp),
+                message = stringResource(R.string.weather_screen_loading_text),
+            )
         } else if (uiState.weatherState.weatherContent == null && uiState.error == null) {
             Text(text = stringResource(R.string.weather_screen_weather_location_data_text), modifier = Modifier.padding(8.dp))
         } else if (uiState.error != null) {
@@ -250,7 +319,16 @@ fun WeatherScreenContent(
             Spacer(modifier = Modifier.height(8.dp))
         }
         if (uiState.weatherState.weatherContent != null) {
-            WeatherDetails(data = uiState.weatherState.weatherContent, unit = uiState.weatherState.temperatureUnit)
+            Box(modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp), contentAlignment = Alignment.Center) {
+                WeatherDetails(
+                    modifier = if (isLoading) Modifier.graphicsLayer(alpha = 0.5f) else Modifier,
+                    data = uiState.weatherState.weatherContent,
+                    unit = uiState.weatherState.temperatureUnit,
+                )
+                if (isLoading) {
+                    CircularProgressIndicator(modifier = Modifier.testTag(TAG_PROGRESS))
+                }
+            }
             Spacer(modifier = Modifier.height(8.dp))
         }
         FlowRow(
@@ -372,10 +450,14 @@ fun <T> SearchableDropDown(
 
 @Composable
 fun WeatherDetails(
+    modifier: Modifier = Modifier,
     data: WeatherDataPO,
     unit: TemperatureUnit = TemperatureUnit.CELSIUS,
 ) {
-    Card(elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)) {
+    Card(
+        modifier = modifier,
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+    ) {
         Column(
             modifier = Modifier.padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
