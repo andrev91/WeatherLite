@@ -1,5 +1,6 @@
 package com.tehuberz.weather.lite.network
 
+import android.util.Log
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import com.tehuberz.weather.lite.BuildConfig
 import com.tehuberz.weather.lite.api.ApiService
@@ -8,7 +9,6 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
-import android.util.Log
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
