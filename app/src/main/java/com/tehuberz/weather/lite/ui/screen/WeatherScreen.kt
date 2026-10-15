@@ -48,7 +48,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -69,6 +68,7 @@ import com.tehuberz.weather.lite.ui.model.WeatherDataPO
 import com.tehuberz.weather.lite.ui.scaffold.WeatherScaffold
 import com.tehuberz.weather.lite.ui.state.LocationSelectionState
 import com.tehuberz.weather.lite.ui.state.LocationType
+import com.tehuberz.weather.lite.ui.state.PermissionRequestState
 import com.tehuberz.weather.lite.ui.state.WeatherDataState
 import com.tehuberz.weather.lite.ui.state.WeatherUiState
 import com.tehuberz.weather.lite.ui.theme.AdventureTheme
@@ -151,26 +151,32 @@ fun WeatherScreen(
         )
     }
 
-    if (uiState.showLocationExplanationDialog) {
-        LocationExplanationDialog(
-            onDismiss = { viewModel.denyLocationExplanation() },
-            onAllow = { viewModel.acceptLocationExplanation() },
-        )
-    }
+    when (uiState.permissionRequestState) {
+        PermissionRequestState.EXPLANATION -> {
+            LocationExplanationDialog(
+                onDismiss = { viewModel.denyLocationExplanation() },
+                onAllow = { viewModel.acceptLocationExplanation() },
+            )
+        }
 
-    if (uiState.showLocationSettingsDialog) {
-        LocationSettingsDialog(
-            onDismiss = { viewModel.dismissLocationSettingsDialog() },
-            onOpenSettings = {
-                viewModel.dismissLocationSettingsDialog()
-                val intent =
-                    Intent(
-                        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                        Uri.fromParts("package", context.packageName, null),
-                    )
-                context.startActivity(intent)
-            },
-        )
+        PermissionRequestState.SETTINGS -> {
+            LocationSettingsDialog(
+                onDismiss = { viewModel.dismissLocationSettingsDialog() },
+                onOpenSettings = {
+                    viewModel.dismissLocationSettingsDialog()
+                    val intent =
+                        Intent(
+                            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                            Uri.fromParts("package", context.packageName, null),
+                        )
+                    context.startActivity(intent)
+                },
+            )
+        }
+
+        PermissionRequestState.NONE -> {
+            Unit
+        }
     }
 }
 
@@ -243,7 +249,7 @@ private fun LocationExplanationDialog(
 fun WeatherScreenContent(
     modifier: Modifier = Modifier,
     uiState: WeatherUiState,
-    onDropdownSearch: (LocationType, TextFieldValue) -> Unit,
+    onDropdownSearch: (LocationType, String) -> Unit,
     onDropdownClear: (LocationType) -> Unit,
     onDropdownSelected: (LocationType, String) -> Unit,
     onRefreshClicked: () -> Unit,
@@ -269,7 +275,7 @@ fun WeatherScreenContent(
             modifier = Modifier.fillMaxWidth(0.8f),
             label = stringResource(R.string.weather_screen_us_state_label),
             testTag = TAG_LOCATION_DESC,
-            options = uiState.locationState.filteredStates.ifEmpty { uiState.locationState.availableStates.orEmpty() },
+            options = uiState.locationState.displayedStates,
             onClear = { onDropdownClear(LocationType.STATE) },
             searchQuery = uiState.locationState.stateSearchQuery,
             onSearchQueryChanged = { onDropdownSearch(LocationType.STATE, it) },
@@ -277,12 +283,12 @@ fun WeatherScreenContent(
             onOptionSelected = { onDropdownSelected(LocationType.STATE, it) },
         ) { it.name }
         Spacer(Modifier.height(8.dp))
-        if (uiState.locationState.selectedState != null && !uiState.locationState.availableCities.isNullOrEmpty()) {
+        if (uiState.locationState.showCityDropdown) {
             SearchableDropDown(
                 modifier = Modifier.fillMaxWidth(0.8f),
                 label = stringResource(R.string.weather_screen_city_label),
                 testTag = TAG_CITY_DROPDOWN,
-                options = uiState.locationState.filteredCities.ifEmpty { uiState.locationState.availableCities },
+                options = uiState.locationState.displayedCities,
                 onClear = { onDropdownClear(LocationType.CITY) },
                 searchQuery = uiState.locationState.citySearchQuery,
                 onSearchQueryChanged = { onDropdownSearch(LocationType.CITY, it) },
@@ -291,13 +297,7 @@ fun WeatherScreenContent(
             ) { it }
             Spacer(Modifier.height(16.dp))
         }
-        val isLoading =
-            (
-                uiState.locationState.isLoadingStates ||
-                    uiState.locationState.isLoadingCities ||
-                    uiState.weatherState.isLoadingWeather ||
-                    uiState.isResolvingCurrentLocation
-            ) && uiState.error == null
+        val isLoading = uiState.isLoading
         if (isLoading && uiState.weatherState.weatherContent == null) {
             WeatherLoadingOrb(
                 modifier = Modifier.testTag(TAG_PROGRESS).padding(8.dp),
@@ -342,7 +342,7 @@ fun WeatherScreenContent(
                         },
                 )
             }
-            if (uiState.locationState.selectedState != null && uiState.locationState.selectedCity != null) {
+            if (uiState.locationState.canBookmark) {
                 Button(onClick = onAddBookmark, elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)) {
                     Text(stringResource(R.string.bookmark_button_label))
                 }
@@ -354,7 +354,7 @@ fun WeatherScreenContent(
         Button(
             onClick = onUseCurrentLocation,
             modifier = Modifier.testTag(TAG_CURRENT_LOCATION_BUTTON),
-            enabled = !uiState.isResolvingCurrentLocation && !uiState.weatherState.isLoadingWeather,
+            enabled = uiState.canUseCurrentLocation,
             elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp),
         ) {
             Icon(Icons.Filled.Place, contentDescription = stringResource(R.string.cd_use_current_location))
@@ -481,10 +481,10 @@ fun PreviewWeatherScreenContent_Success() {
                             LocationSelectionState(
                                 availableStates = listOf(State("Georgia", "GA"), State("California", "CA")),
                                 selectedState = State("Georgia", "GA"),
-                                stateSearchQuery = TextFieldValue("Georgia"),
+                                stateSearchQuery = "Georgia",
                                 availableCities = listOf("Dunwoody", "Powder Springs, Marietta"),
                                 selectedCity = "Dunwoody",
-                                citySearchQuery = TextFieldValue("Dunwoody"),
+                                citySearchQuery = "Dunwoody",
                             ),
                     ),
                 onDropdownSelected = { _, _ -> },
@@ -521,10 +521,10 @@ fun PreviewWeatherScreenContent_Success_Landscape() {
                             LocationSelectionState(
                                 availableStates = listOf(State("Georgia", "GA"), State("California", "CA")),
                                 selectedState = State("Georgia", "GA"),
-                                stateSearchQuery = TextFieldValue("Georgia"),
+                                stateSearchQuery = "Georgia",
                                 availableCities = listOf("Dunwoody", "Powder Springs, Marietta"),
                                 selectedCity = "Dunwoody",
-                                citySearchQuery = TextFieldValue("Dunwoody"),
+                                citySearchQuery = "Dunwoody",
                             ),
                     ),
                 onDropdownSelected = { _, _ -> },

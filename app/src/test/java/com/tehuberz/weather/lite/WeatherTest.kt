@@ -1,7 +1,6 @@
 package com.tehuberz.weather.lite
 
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
-import androidx.compose.ui.text.input.TextFieldValue
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequest
 import androidx.work.Operation
@@ -12,7 +11,9 @@ import com.tehuberz.weather.lite.data.model.State
 import com.tehuberz.weather.lite.data.model.StateCities
 import com.tehuberz.weather.lite.data.repository.LocationRepository
 import com.tehuberz.weather.lite.data.repository.SettingsRepository
+import com.tehuberz.weather.lite.data.repository.WeatherRepository
 import com.tehuberz.weather.lite.ui.state.LocationType
+import com.tehuberz.weather.lite.ui.state.PermissionRequestState
 import com.tehuberz.weather.lite.util.UiText
 import com.tehuberz.weather.lite.viewmodel.WeatherViewModel
 import junit.framework.TestCase.assertEquals
@@ -37,6 +38,7 @@ import org.mockito.Mock
 import org.mockito.Mockito
 import org.mockito.MockitoAnnotations
 import org.mockito.kotlin.any
+import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.whenever
 import java.util.UUID
@@ -59,6 +61,7 @@ class WeatherTest {
     @Mock
     private lateinit var mockSettingsRepository: SettingsRepository
 
+    private lateinit var weatherRepository: WeatherRepository
     private lateinit var viewModel: WeatherViewModel
 
     @Before
@@ -87,13 +90,16 @@ class WeatherTest {
         whenever(mockLocationRepository.getBookmarks()).thenReturn(kotlinx.coroutines.flow.emptyFlow())
         whenever(mockLocationRepository.getStates()).thenReturn(emptyList())
         whenever(mockLocationRepository.getOrFetchLocation(any())).thenReturn(kotlinx.coroutines.flow.emptyFlow())
+        whenever(mockLocationRepository.filterStates(any(), any())).thenCallRealMethod()
+        whenever(mockLocationRepository.searchCities(anyOrNull(), any(), any())).thenCallRealMethod()
         whenever(mockSettingsRepository.temperatureUnit).thenReturn(kotlinx.coroutines.flow.emptyFlow())
         whenever(mockSettingsRepository.locationExplanationAccepted).thenReturn(kotlinx.coroutines.flow.emptyFlow())
         whenever(mockSettingsRepository.locationPermissionRequested).thenReturn(kotlinx.coroutines.flow.emptyFlow())
 
+        weatherRepository = WeatherRepository(mockWorkManager)
         viewModel =
             WeatherViewModel(
-                mockWorkManager,
+                weatherRepository,
                 mockLocationRepository,
                 mockSettingsRepository,
             )
@@ -119,6 +125,7 @@ class WeatherTest {
                 assertNull("selectedState should be null initially", initialState.locationState.selectedState)
                 assertNull("selectedCity should be null initially", initialState.locationState.selectedCity)
                 assertNull("error should be null initially", initialState.error)
+                assertEquals(PermissionRequestState.NONE, initialState.permissionRequestState)
                 cancelAndConsumeRemainingEvents()
             }
         }
@@ -172,13 +179,9 @@ class WeatherTest {
             whenever(mockLocationRepository.getMajorCitiesByState("CA")).thenReturn(emptyList())
 
             viewModel.setDropdownSelection(LocationType.STATE, "California")
-
-            // Advance to let state selection settle
             advanceUntilIdle()
 
-            viewModel.searchDropdownList(LocationType.CITY, TextFieldValue("San"))
-
-            Thread.sleep(200) // Wait for background thread (Dispatchers.Default)
+            viewModel.searchDropdownList(LocationType.CITY, "San")
             advanceUntilIdle()
 
             val currentState = viewModel.uiState.value
@@ -316,7 +319,7 @@ class WeatherTest {
             assertEquals("New York", state.locationState.selectedState?.name)
             assertEquals("New York City", state.locationState.selectedCity)
             assertFalse(state.isResolvingCurrentLocation)
-            assertFalse(state.showLocationExplanationDialog)
+            assertEquals(PermissionRequestState.NONE, state.permissionRequestState)
         }
 
     @Test
@@ -325,7 +328,7 @@ class WeatherTest {
             viewModel.onUseCurrentLocationClicked(hasPermission = false)
             advanceUntilIdle()
 
-            assertTrue(viewModel.uiState.value.showLocationExplanationDialog)
+            assertEquals(PermissionRequestState.EXPLANATION, viewModel.uiState.value.permissionRequestState)
         }
 
     @Test
@@ -335,8 +338,7 @@ class WeatherTest {
             advanceUntilIdle()
 
             val state = viewModel.uiState.value
-            assertTrue(state.showLocationExplanationDialog)
-            assertFalse(state.showLocationSettingsDialog)
+            assertEquals(PermissionRequestState.EXPLANATION, state.permissionRequestState)
         }
 
     @Test
@@ -346,7 +348,7 @@ class WeatherTest {
             whenever(mockSettingsRepository.locationPermissionRequested).thenReturn(requestedFlow)
             viewModel =
                 WeatherViewModel(
-                    mockWorkManager,
+                    weatherRepository,
                     mockLocationRepository,
                     mockSettingsRepository,
                 )
@@ -356,8 +358,7 @@ class WeatherTest {
             advanceUntilIdle()
 
             val state = viewModel.uiState.value
-            assertTrue(state.showLocationSettingsDialog)
-            assertFalse(state.showLocationExplanationDialog)
+            assertEquals(PermissionRequestState.SETTINGS, state.permissionRequestState)
         }
 
     @Test
@@ -367,7 +368,7 @@ class WeatherTest {
             whenever(mockSettingsRepository.locationPermissionRequested).thenReturn(requestedFlow)
             viewModel =
                 WeatherViewModel(
-                    mockWorkManager,
+                    weatherRepository,
                     mockLocationRepository,
                     mockSettingsRepository,
                 )
@@ -377,8 +378,7 @@ class WeatherTest {
             advanceUntilIdle()
 
             val state = viewModel.uiState.value
-            assertFalse(state.showLocationSettingsDialog)
-            assertTrue(state.showLocationExplanationDialog)
+            assertEquals(PermissionRequestState.EXPLANATION, state.permissionRequestState)
         }
 
     @Test
@@ -388,7 +388,7 @@ class WeatherTest {
                 viewModel.acceptLocationExplanation()
                 assertEquals(Unit, awaitItem())
                 Mockito.verify(mockSettingsRepository).setLocationPermissionRequested(true)
-                assertFalse(viewModel.uiState.value.showLocationExplanationDialog)
+                assertEquals(PermissionRequestState.NONE, viewModel.uiState.value.permissionRequestState)
             }
         }
 
@@ -396,10 +396,10 @@ class WeatherTest {
     fun `dismissLocationExplanation hides dialog without saving or prompting`() =
         runTest {
             viewModel.onUseCurrentLocationClicked(hasPermission = false)
-            assertTrue(viewModel.uiState.value.showLocationExplanationDialog)
+            assertEquals(PermissionRequestState.EXPLANATION, viewModel.uiState.value.permissionRequestState)
 
             viewModel.denyLocationExplanation()
-            assertFalse(viewModel.uiState.value.showLocationExplanationDialog)
+            assertEquals(PermissionRequestState.NONE, viewModel.uiState.value.permissionRequestState)
             Mockito.verify(mockSettingsRepository, Mockito.never()).setLocationPermissionRequested(any())
         }
 
@@ -407,10 +407,10 @@ class WeatherTest {
     fun `dismissLocationSettingsDialog hides settings dialog`() =
         runTest {
             viewModel.onPermissionResult(granted = false, shouldShowRationale = false)
-            assertTrue(viewModel.uiState.value.showLocationSettingsDialog)
+            assertEquals(PermissionRequestState.SETTINGS, viewModel.uiState.value.permissionRequestState)
 
             viewModel.dismissLocationSettingsDialog()
-            assertFalse(viewModel.uiState.value.showLocationSettingsDialog)
+            assertEquals(PermissionRequestState.NONE, viewModel.uiState.value.permissionRequestState)
         }
 
     @Test
@@ -448,7 +448,7 @@ class WeatherTest {
                 R.string.location_permission_denied_error,
                 (state.error as? UiText.StringResource)?.resId,
             )
-            assertFalse(state.showLocationSettingsDialog)
+            assertEquals(PermissionRequestState.NONE, state.permissionRequestState)
             Mockito.verify(mockSettingsRepository).setLocationPermissionRequested(true)
         }
 
@@ -464,7 +464,7 @@ class WeatherTest {
                 R.string.location_permission_denied_error,
                 (state.error as? UiText.StringResource)?.resId,
             )
-            assertTrue(state.showLocationSettingsDialog)
+            assertEquals(PermissionRequestState.SETTINGS, state.permissionRequestState)
             Mockito.verify(mockSettingsRepository).setLocationPermissionRequested(true)
         }
 
@@ -511,24 +511,7 @@ class WeatherTest {
             viewModel.requestWeatherForCurrentLocation()
             advanceUntilIdle()
 
-            // Simulate weather loaded
-            val initialWeather =
-                com.tehuberz.weather.lite.ui.model.WeatherDataPO(
-                    weatherDescription =
-                        com.tehuberz.weather.lite.util.UiText
-                            .DynamicString("Sunny"),
-                    weatherIcon = null,
-                    temperatureFahrenheit =
-                        com.tehuberz.weather.lite.util.UiText
-                            .DynamicString("72°F"),
-                    temperatureCelsius =
-                        com.tehuberz.weather.lite.util.UiText
-                            .DynamicString("22°C"),
-                    observedAt =
-                        com.tehuberz.weather.lite.util.UiText
-                            .DynamicString("12:00"),
-                )
-            // Trigger again while already at same location with weather present
+            // Trigger again while already at same location
             viewModel.requestWeatherForCurrentLocation()
 
             // Dropdowns should remain the same

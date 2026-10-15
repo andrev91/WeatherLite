@@ -31,7 +31,6 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.tehuberz.weather.lite.R
@@ -44,8 +43,8 @@ fun <T> SearchableDropDown(
     label: String,
     testTag: String,
     options: List<T>,
-    searchQuery: TextFieldValue,
-    onSearchQueryChanged: (TextFieldValue) -> Unit,
+    searchQuery: String,
+    onSearchQueryChanged: (String) -> Unit,
     onOptionSelected: (String) -> Unit,
     onClear: () -> Unit,
     isSelected: Boolean = false,
@@ -104,8 +103,8 @@ fun <T> SearchableDropDown(
                         } else {
                             if (isSearchMode) {
                                 IconButton(onClick = {
-                                    if (searchQuery.text.isNotEmpty()) {
-                                        onSearchQueryChanged(TextFieldValue(""))
+                                    if (searchQuery.isNotEmpty()) {
+                                        onSearchQueryChanged("")
                                     } else {
                                         isSearchMode = false
                                         expanded = false
@@ -160,15 +159,15 @@ fun <T> SearchableDropDown(
 @Preview(showBackground = true)
 @Composable
 fun PreviewSearchableDropDown_Interactive() {
-    var searchQuery by remember { mutableStateOf(TextFieldValue("")) }
+    var searchQuery by remember { mutableStateOf("") }
     var selectedOption by remember { mutableStateOf<String?>(null) }
     val allOptions = listOf("California", "New York", "Texas", "Florida", "Washington")
     val filteredOptions =
-        remember(searchQuery.text) {
-            if (searchQuery.text.isEmpty()) {
+        remember(searchQuery) {
+            if (searchQuery.isEmpty()) {
                 allOptions
             } else {
-                allOptions.filter { it.contains(searchQuery.text, ignoreCase = true) }
+                allOptions.filter { it.contains(searchQuery, ignoreCase = true) }
             }
         }
 
@@ -182,11 +181,11 @@ fun PreviewSearchableDropDown_Interactive() {
                 onSearchQueryChanged = { searchQuery = it },
                 onOptionSelected = {
                     selectedOption = it
-                    searchQuery = TextFieldValue(it)
+                    searchQuery = it
                 },
                 onClear = {
                     selectedOption = null
-                    searchQuery = TextFieldValue("")
+                    searchQuery = ""
                 },
                 isSelected = selectedOption != null,
             )
@@ -203,7 +202,7 @@ fun PreviewSearchableDropDown_Idle() {
                 label = "State",
                 testTag = "StateDropdown",
                 options = listOf("California", "New York", "Texas"),
-                searchQuery = TextFieldValue(""),
+                searchQuery = "",
                 onSearchQueryChanged = {},
                 onOptionSelected = {},
                 onClear = {},
@@ -222,7 +221,7 @@ fun PreviewSearchableDropDown_Selected() {
                 label = "State",
                 testTag = "StateDropdown",
                 options = listOf("California", "New York", "Texas"),
-                searchQuery = TextFieldValue("California"),
+                searchQuery = "California",
                 onSearchQueryChanged = {},
                 onOptionSelected = {},
                 onClear = {},
@@ -241,7 +240,7 @@ fun PreviewSearchableDropDown_Expanded() {
                 label = "State",
                 testTag = "StateDropdown",
                 options = listOf("California", "New York", "Texas"),
-                searchQuery = TextFieldValue(""),
+                searchQuery = "",
                 onSearchQueryChanged = {},
                 onOptionSelected = {},
                 onClear = {},
@@ -261,7 +260,7 @@ fun PreviewSearchableDropDown_SearchMode() {
                 label = "State",
                 testTag = "StateDropdown",
                 options = listOf("California", "Colorado", "Connecticut"),
-                searchQuery = TextFieldValue("Cal"),
+                searchQuery = "Cal",
                 onSearchQueryChanged = {},
                 onOptionSelected = {},
                 onClear = {},
@@ -281,7 +280,7 @@ fun PreviewSearchableDropDown_Dark() {
                 label = "State",
                 testTag = "StateDropdown",
                 options = listOf("California", "New York", "Texas"),
-                searchQuery = TextFieldValue("California"),
+                searchQuery = "California",
                 onSearchQueryChanged = {},
                 onOptionSelected = {},
                 onClear = {},

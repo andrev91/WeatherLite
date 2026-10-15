@@ -98,6 +98,28 @@ class LocationRepository
 
         fun getCities(): Map<String, StateCities> = citiesData
 
+        fun filterStates(
+            query: String,
+            availableStates: List<State> = getStates(),
+        ): List<State> {
+            if (query.isBlank()) return availableStates
+            return availableStates.filter { state ->
+                state.name.contains(query, ignoreCase = true)
+            }
+        }
+
+        fun searchCities(
+            stateAbbreviation: String?,
+            query: String,
+            defaultCities: List<String> = emptyList(),
+        ): List<String> {
+            if (query.isBlank()) return defaultCities
+            val allCities = stateAbbreviation?.let { getCities()[it]?.allCities } ?: emptyList()
+            return allCities.filter { city ->
+                city.contains(query, ignoreCase = true)
+            }
+        }
+
         /**
          * Returns a list of ALL cities in the given state.
          * Expected param for state is the abbreviation. IE "CA" for California
