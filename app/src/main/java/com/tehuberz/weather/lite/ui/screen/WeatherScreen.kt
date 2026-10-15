@@ -266,6 +266,7 @@ fun WeatherScreenContent(
         Spacer(modifier = Modifier.height(16.dp))
 
         SearchableDropDown(
+            modifier = Modifier.fillMaxWidth(0.8f),
             label = stringResource(R.string.weather_screen_us_state_label),
             testTag = TAG_LOCATION_DESC,
             options = uiState.locationState.filteredStates.ifEmpty { uiState.locationState.availableStates.orEmpty() },
@@ -278,6 +279,7 @@ fun WeatherScreenContent(
         Spacer(Modifier.height(8.dp))
         if (uiState.locationState.selectedState != null && !uiState.locationState.availableCities.isNullOrEmpty()) {
             SearchableDropDown(
+                modifier = Modifier.fillMaxWidth(0.8f),
                 label = stringResource(R.string.weather_screen_city_label),
                 testTag = TAG_CITY_DROPDOWN,
                 options = uiState.locationState.filteredCities.ifEmpty { uiState.locationState.availableCities },
