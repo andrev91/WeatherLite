@@ -11,23 +11,39 @@ fun getApiKey(propertyKey: String): String {
 
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.jetbrains.kotlin.android)
     alias(libs.plugins.jetbrains.kotlin.compose)
     alias(libs.plugins.jetbrains.kotlin.serialization)
-    alias(libs.plugins.hilt.android)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.hilt.android)
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+        freeCompilerArgs.addAll(
+            "-opt-in=kotlin.RequiresOptIn",
+            "-Xexplicit-backing-fields",
+            "-XXLanguage:+ExplicitBackingFields",
+        )
+    }
 }
 
 android {
     namespace = "com.tehuberz.weather.lite"
-    compileSdk = 36
+    compileSdk = 37
+
+    sourceSets {
+        getByName("main") {
+            java.directories.add("src/main/assets")
+        }
+    }
 
     defaultConfig {
         applicationId = "com.tehuberz.weather.lite"
         minSdk = 28
-        targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        targetSdk = 37
+        versionCode = 2
+        versionName = "1.01"
 
         testInstrumentationRunner = "com.tehuberz.weather.lite.TestRunner"
 
@@ -44,7 +60,7 @@ android {
             isDebuggable = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
+                "proguard-rules.pro",
             )
         }
     }
@@ -52,20 +68,10 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions {
-        jvmTarget = "17"
-    }
     buildFeatures {
         compose = true
         dataBinding = true
         buildConfig = true
-    }
-    // composeOptions removed as kotlinCompilerExtensionVersion is deprecated
-
-    sourceSets {
-        getByName("main") {
-            assets.srcDirs("src/main/assets")
-        }
     }
 }
 
@@ -101,6 +107,10 @@ dependencies {
 
     // WorkManager
     implementation(libs.androidx.work.runtime.ktx)
+
+     // Location
+    implementation(libs.play.services.location)
+    implementation(libs.kotlinx.coroutines.play.services)
 
     // Room
     implementation(libs.androidx.room.runtime)
@@ -143,4 +153,29 @@ dependencies {
     androidTestImplementation(libs.androidx.runner)
     androidTestImplementation(libs.androidx.work.testing)
     kspAndroidTest(libs.hilt.compiler)
+
+    configurations.create("ktlint")
+    "ktlint"(libs.ktlint.cli) {
+        attributes {
+            attribute(Bundling.BUNDLING_ATTRIBUTE, objects.named(Bundling.EXTERNAL))
+        }
+    }
+}
+
+tasks.register<JavaExec>("ktlintCheck") {
+    group = "verification"
+    description = "Check Kotlin code style."
+    classpath = configurations.getByName("ktlint")
+    mainClass.set("com.pinterest.ktlint.Main")
+    args("src/**/*.kt")
+    jvmArgs("--add-opens=java.base/java.lang=ALL-UNNAMED")
+}
+
+tasks.register<JavaExec>("ktlintFormat") {
+    group = "formatting"
+    description = "Fix Kotlin code style deviations."
+    classpath = configurations.getByName("ktlint")
+    mainClass.set("com.pinterest.ktlint.Main")
+    args("-F", "src/**/*.kt")
+    jvmArgs("--add-opens=java.base/java.lang=ALL-UNNAMED")
 }

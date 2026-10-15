@@ -12,17 +12,15 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object DatabaseModule {
-
     @Provides
     @Singleton
-    fun provideAppDatabase(@ApplicationContext context: Context): AppDatabase {
-        return AppDatabase.getDatabase(context)
-    }
+    fun provideAppDatabase(
+        @ApplicationContext context: Context,
+    ): AppDatabase = AppDatabase.getDatabase(context)
 
     @Provides
     fun provideLocationDao(appDatabase: AppDatabase) = appDatabase.locationDao()
 
     @Provides
     fun provideBookmarkDao(appDatabase: AppDatabase) = appDatabase.bookmarkDao()
-
 }

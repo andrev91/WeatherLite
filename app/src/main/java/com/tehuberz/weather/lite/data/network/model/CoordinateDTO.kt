@@ -5,5 +5,5 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class CoordinateDTO(
     val lon: Double,
-    val lat: Double
+    val lat: Double,
 )

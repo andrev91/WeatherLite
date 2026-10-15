@@ -3,13 +3,14 @@ package com.tehuberz.weather.lite.app
 import android.app.Application
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
+import com.tehuberz.weather.lite.util.ApiServiceHost
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
-import com.tehuberz.weather.lite.util.ApiServiceHost
 
 @HiltAndroidApp
-class App : Application(), Configuration.Provider {
-
+class App :
+    Application(),
+    Configuration.Provider {
     @Inject lateinit var workerFactory: HiltWorkerFactory
 
     override fun onLowMemory() {
@@ -26,8 +27,9 @@ class App : Application(), Configuration.Provider {
     }
 
     override val workManagerConfiguration: Configuration
-        get() = Configuration.Builder()
-            .setWorkerFactory(workerFactory)
-            .build()
-
+        get() =
+            Configuration
+                .Builder()
+                .setWorkerFactory(workerFactory)
+                .build()
 }

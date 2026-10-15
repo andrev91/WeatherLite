@@ -2,6 +2,7 @@ package com.tehuberz.weather.lite.data.repository
 
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -14,35 +15,79 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class SettingsRepository @Inject constructor(
-    private val dataStore: DataStore<Preferences>
-) {
-    private val unitKey = stringPreferencesKey("temperature_unit")
+class SettingsRepository
+    @Inject
+    constructor(
+        private val dataStore: DataStore<Preferences>,
+    ) {
+        private val unitKey = stringPreferencesKey("temperature_unit")
 
-    val temperatureUnit: Flow<TemperatureUnit> = dataStore.data
-        .catch { exception ->
-            if (exception is IOException) {
-                emit(emptyPreferences())
-            } else {
-                throw exception
-            }
-        }
-        .map { preferences ->
-            val unitString = preferences[unitKey]
-            if (unitString != null) {
-                try {
-                    TemperatureUnit.valueOf(unitString)
-                } catch (_: IllegalArgumentException) {
-                    TemperatureUnit.CELSIUS
+        private val locationExplanationAcceptedKey = booleanPreferencesKey("location_explanation_accepted")
+        private val locationPermissionRequestedKey = booleanPreferencesKey("location_permission_requested")
+
+        val temperatureUnit: Flow<TemperatureUnit> =
+            dataStore.data
+                .catch { exception ->
+                    if (exception is IOException) {
+                        emit(emptyPreferences())
+                    } else {
+                        throw exception
+                    }
+                }.map { preferences ->
+                    val unitString = preferences[unitKey]
+                    if (unitString != null) {
+                        try {
+                            TemperatureUnit.valueOf(unitString)
+                        } catch (_: IllegalArgumentException) {
+                            TemperatureUnit.CELSIUS
+                        }
+                    } else {
+                        TemperatureUnit.CELSIUS
+                    }
                 }
-            } else {
-                TemperatureUnit.CELSIUS
+
+        suspend fun setTemperatureUnit(unit: TemperatureUnit) {
+            dataStore.edit { preferences ->
+                preferences[unitKey] = unit.name
             }
         }
 
-    suspend fun setTemperatureUnit(unit: TemperatureUnit) {
-        dataStore.edit { preferences ->
-            preferences[unitKey] = unit.name
+        val locationExplanationAccepted: Flow<Boolean> =
+            dataStore.data
+                .catch { exception ->
+                    if (exception is IOException) {
+                        emit(emptyPreferences())
+                    } else {
+                        throw exception
+                    }
+                }.map { preferences ->
+                    preferences[locationExplanationAcceptedKey] ?: false
+                }
+
+        suspend fun setLocationExplanationAccepted(accepted: Boolean) {
+            dataStore.edit { preferences ->
+                preferences[locationExplanationAcceptedKey] = accepted
+            }
+        }
+
+        val locationPermissionRequested: Flow<Boolean> =
+            dataStore.data
+                .catch { exception ->
+                    if (exception is IOException) {
+                        emit(emptyPreferences())
+                    } else {
+                        throw exception
+                    }
+                }.map { preferences ->
+                    preferences[locationPermissionRequestedKey]
+                        ?: preferences[locationExplanationAcceptedKey]
+                        ?: false
+                }
+
+        suspend fun setLocationPermissionRequested(requested: Boolean) {
+            dataStore.edit { preferences ->
+                preferences[locationPermissionRequestedKey] = requested
+                preferences[locationExplanationAcceptedKey] = requested
+            }
         }
     }
-}

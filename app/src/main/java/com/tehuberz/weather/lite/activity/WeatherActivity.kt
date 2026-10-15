@@ -10,10 +10,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
@@ -50,37 +47,22 @@ class MainActivity : ComponentActivity() {
                         popTransitionSpec = {
                             slideInHorizontally(initialOffsetX = { -it }) togetherWith slideOutHorizontally(targetOffsetX = { it })
                         },
-                        entryProvider = entryProvider {
-                            entry<WeatherRoute> {
-                                WeatherScreen(
-                                    onSettingsClick = { backStack.add(SettingsRoute) }
-                                )
-                            }
-                            entry<SettingsRoute> {
-                                SettingsScreen(
-                                    onNavigateBack = { backStack.removeLastOrNull() }
-                                )
-                            }
-                        },
+                        entryProvider =
+                            entryProvider {
+                                entry<WeatherRoute> {
+                                    WeatherScreen(
+                                        onSettingsClick = { backStack.add(SettingsRoute) },
+                                    )
+                                }
+                                entry<SettingsRoute> {
+                                    SettingsScreen(
+                                        onNavigateBack = { backStack.removeLastOrNull() },
+                                    )
+                                }
+                            },
                     )
                 }
             }
         }
-    }
-}
-
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    AdventureTheme {
-        Greeting("Android")
     }
 }
