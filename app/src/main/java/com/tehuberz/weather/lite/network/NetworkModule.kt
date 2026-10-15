@@ -1,5 +1,6 @@
 package com.tehuberz.weather.lite.network
 
+import android.util.Log
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import com.tehuberz.weather.lite.BuildConfig
 import com.tehuberz.weather.lite.api.ApiService
@@ -68,7 +69,9 @@ object NetworkModule {
                 "API Key is not set in BuildConfig. Please add it to your local.properties or gradle file.",
             )
         }
-        println("Using API Key: ...${apiKey.takeLast(4)}") // Avoid logging full key
+        if (BuildConfig.DEBUG) {
+            Log.d("NetworkModule", "Using API Key: ...${apiKey.takeLast(4)}") // Avoid logging full key
+        }
         return apiKey
     }
 
