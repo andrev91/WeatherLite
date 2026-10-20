@@ -1,4 +1,4 @@
-package com.example.adventure.viewmodel
+package com.tehuberz.weather.lite
 
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import app.cash.turbine.test

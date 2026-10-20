@@ -59,10 +59,9 @@ object NetworkModule {
     fun provideApiKey(): String {
         // Basic check - replace with proper validation/handling
         val apiKey =
-            if (ApiServiceHost.ACCUWEATHER.isActive) {
-                BuildConfig.ACCUWEATHER_API_KEY
-            } else {
-                BuildConfig.OPEN_WEATHER_API_KEY
+            when (ApiServiceHost.getActive()) {
+                ApiServiceHost.ACCUWEATHER -> BuildConfig.ACCUWEATHER_API_KEY
+                ApiServiceHost.OPEN_WEATHER_MAP -> BuildConfig.OPEN_WEATHER_API_KEY
             }
         if (apiKey.isBlank()) {
             throw IllegalArgumentException(

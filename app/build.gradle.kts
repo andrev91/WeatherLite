@@ -32,12 +32,6 @@ android {
     namespace = "com.tehuberz.weather.lite"
     compileSdk = 37
 
-    sourceSets {
-        getByName("main") {
-            java.directories.add("src/main/assets")
-        }
-    }
-
     defaultConfig {
         applicationId = "com.tehuberz.weather.lite"
         minSdk = 28
@@ -70,7 +64,6 @@ android {
     }
     buildFeatures {
         compose = true
-        dataBinding = true
         buildConfig = true
     }
 }
@@ -89,7 +82,6 @@ dependencies {
     // Lifecycle libraries
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
-    implementation(libs.androidx.fragment.ktx)
 
     // Activity Compose library
     implementation(libs.androidx.activity.compose)

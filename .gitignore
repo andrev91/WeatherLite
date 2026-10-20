@@ -30,17 +30,17 @@ local.properties
 
 # Build directories
 app/build/
+app/release/
 */build/
-
-# Proguard configuration files
-proguard-rules.pro
+.kotlin/
 
 # Miscellaneous
 *.apk
+*.aab
 *.ap_
 *.dex
 *.class
+.DS_Store
 
 # Android NDK
 ndkBuild/
-local.properties

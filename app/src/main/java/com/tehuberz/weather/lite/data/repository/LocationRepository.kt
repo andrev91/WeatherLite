@@ -121,12 +121,6 @@ class LocationRepository
         }
 
         /**
-         * Returns a list of ALL cities in the given state.
-         * Expected param for state is the abbreviation. IE "CA" for California
-         */
-        fun getCitiesByState(state: String): List<String> = citiesData[state]?.allCities ?: emptyList()
-
-        /**
          * Returns a list of MAJOR cities in the given state.
          * Expected param for state is the abbreviation. IE "CA" for California
          */

@@ -52,24 +52,6 @@ class SettingsRepository
             }
         }
 
-        val locationExplanationAccepted: Flow<Boolean> =
-            dataStore.data
-                .catch { exception ->
-                    if (exception is IOException) {
-                        emit(emptyPreferences())
-                    } else {
-                        throw exception
-                    }
-                }.map { preferences ->
-                    preferences[locationExplanationAcceptedKey] ?: false
-                }
-
-        suspend fun setLocationExplanationAccepted(accepted: Boolean) {
-            dataStore.edit { preferences ->
-                preferences[locationExplanationAcceptedKey] = accepted
-            }
-        }
-
         val locationPermissionRequested: Flow<Boolean> =
             dataStore.data
                 .catch { exception ->

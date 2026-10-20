@@ -13,17 +13,9 @@ class App :
     Configuration.Provider {
     @Inject lateinit var workerFactory: HiltWorkerFactory
 
-    override fun onLowMemory() {
-        super.onLowMemory()
-    }
-
     override fun onCreate() {
         super.onCreate()
         ApiServiceHost.setActive(ApiServiceHost.OPEN_WEATHER_MAP)
-    }
-
-    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
-        super.onConfigurationChanged(newConfig)
     }
 
     override val workManagerConfiguration: Configuration

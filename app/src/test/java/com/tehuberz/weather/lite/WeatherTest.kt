@@ -93,7 +93,6 @@ class WeatherTest {
         whenever(mockLocationRepository.filterStates(any(), any())).thenCallRealMethod()
         whenever(mockLocationRepository.searchCities(anyOrNull(), any(), any())).thenCallRealMethod()
         whenever(mockSettingsRepository.temperatureUnit).thenReturn(kotlinx.coroutines.flow.emptyFlow())
-        whenever(mockSettingsRepository.locationExplanationAccepted).thenReturn(kotlinx.coroutines.flow.emptyFlow())
         whenever(mockSettingsRepository.locationPermissionRequested).thenReturn(kotlinx.coroutines.flow.emptyFlow())
 
         weatherRepository = WeatherRepository(mockWorkManager)
