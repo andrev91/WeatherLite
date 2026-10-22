@@ -4,6 +4,8 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
@@ -36,6 +38,9 @@ class MainActivity : ComponentActivity() {
             AdventureTheme {
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     val backStack = rememberNavBackStack(WeatherRoute)
+                    val customPopTransition: AnimatedContentTransitionScope<*>.() -> ContentTransform = {
+                        slideInHorizontally(initialOffsetX = { -it }) togetherWith slideOutHorizontally(targetOffsetX = { it })
+                    }
                     NavDisplay(
                         backStack = backStack,
                         onBack = {
@@ -44,12 +49,8 @@ class MainActivity : ComponentActivity() {
                         transitionSpec = {
                             slideInHorizontally(initialOffsetX = { it }) togetherWith slideOutHorizontally(targetOffsetX = { -it })
                         },
-                        popTransitionSpec = {
-                            slideInHorizontally(initialOffsetX = { -it }) togetherWith slideOutHorizontally(targetOffsetX = { it })
-                        },
-                        predictivePopTransitionSpec = { _ ->
-                            slideInHorizontally(initialOffsetX = { -it }) togetherWith slideOutHorizontally(targetOffsetX = { it })
-                        },
+                        popTransitionSpec = customPopTransition,
+                        predictivePopTransitionSpec = { _ -> customPopTransition() },
                         entryProvider =
                             entryProvider {
                                 entry<WeatherRoute> {
