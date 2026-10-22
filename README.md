@@ -23,6 +23,12 @@
 * **Detailed Weather Display:** Shows temperature, weather condition description, remote weather condition icon, and localized observation time.
 * **Polished UI & Error Handling:** Custom animated loading indicator (`WeatherLoadingOrb`), smooth Navigation 3 transitions, and clear error messaging for network, geocoding, or permission failures.
 
+## 📱 Screenshots
+
+| Weather Details | City Search | Bookmarks Sheet | GPS & Settings |
+| :---: | :---: | :---: | :---: |
+| <img width="300" height="600" alt="image" src="https://github.com/user-attachments/assets/a549cc40-3af1-4081-86ec-f4492b8e0dba" /> | <img width="300" height="600" alt="image" src="https://github.com/user-attachments/assets/004e0bee-6435-4a2d-beec-2348edf9fd50" /> | <img width="300" height="600" alt="image" src="https://github.com/user-attachments/assets/0aceaed1-3203-4c6c-ad8d-ccb35514df33" /> | <img width="300" height="600" alt="image" src="https://github.com/user-attachments/assets/f76f1f57-a1ac-4f9d-b55d-f0ee6da07529" /> |
+
 ## 🛠️ Technologies & Libraries Used
 
 * **Programming Language:** Kotlin 2.2+ (including explicit backing fields)
@@ -123,8 +129,3 @@ Contributions are welcome! If you have suggestions for improvements or find any 
 5.  Open a Pull Request
 
 ---
-
-<img width="400" height="960" alt="image" src="https://github.com/user-attachments/assets/d9ed9ad6-6c33-4d9d-9b24-3ce8b2f4fda6" />
-<img width="400" height="960" alt="image" src="https://github.com/user-attachments/assets/6e6c9df3-5ae6-4979-a995-f42d6257c5f4" />
-<img width="400" height="960" alt="image" src="https://github.com/user-attachments/assets/8af0270f-5fbc-4b59-a38e-34280a00f65e" />
-<img width="400" height="960" alt="image" src="https://github.com/user-attachments/assets/dbc1bd23-0d12-4573-aa2d-bca44723a06e" />
