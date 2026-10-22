@@ -47,6 +47,9 @@ class MainActivity : ComponentActivity() {
                         popTransitionSpec = {
                             slideInHorizontally(initialOffsetX = { -it }) togetherWith slideOutHorizontally(targetOffsetX = { it })
                         },
+                        predictivePopTransitionSpec = { _ ->
+                            slideInHorizontally(initialOffsetX = { -it }) togetherWith slideOutHorizontally(targetOffsetX = { it })
+                        },
                         entryProvider =
                             entryProvider {
                                 entry<WeatherRoute> {
