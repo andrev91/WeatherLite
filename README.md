@@ -71,12 +71,12 @@ This project follows **Clean Architecture** principles with the **MVVM (Model-Vi
 
 1.  **Clone the repository:**
     ```bash
-    git clone https://github.com/andrev91/WeatherDemo.git
-    cd WeatherDemo
+    git clone https://github.com/andrev91/WeatherLite.git
+    cd WeatherLite
     ```
 2.  **Open in Android Studio:**
     * Open Android Studio.
-    * Click on "Open" and select the cloned `WeatherDemo` directory.
+    * Click on "Open" and select the cloned `WeatherLite` directory.
 3.  **API Key:** Follow the instructions in the [API Key Setup](#-api-key-setup) section below.
 4.  **Build and Run:**
     * Let Android Studio sync the Gradle files.
