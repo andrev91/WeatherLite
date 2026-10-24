@@ -53,5 +53,16 @@
     <string name="cd_weather_icon">Weather Icon</string>
     <string name="cd_use_current_location">Use current location</string>
     <string name="cd_back">Back</string>
+    <string name="cd_missing_api_key">Missing API key</string>
+
+    <!-- missing api key screen -->
+    <string name="missing_api_key_title">OpenWeather API Key Required</string>
+    <string name="missing_api_key_description">No OpenWeather API key was found in your build configuration. To fetch weather and location data, please configure your API key in local.properties.</string>
+    <string name="missing_api_key_steps_title">How to set up your API key:</string>
+    <string name="missing_api_key_step_1">1. Register for a free API key at openweathermap.org/api.</string>
+    <string name="missing_api_key_step_2">2. Open or create local.properties in the root project directory and add:</string>
+    <string name="missing_api_key_snippet">%1$s=YOUR_API_KEY_HERE</string>
+    <string name="missing_api_key_step_3">3. Sync Gradle and rebuild the app.</string>
+    <string name="missing_api_key_get_key_button">Get OpenWeather API Key</string>
 
 </resources>

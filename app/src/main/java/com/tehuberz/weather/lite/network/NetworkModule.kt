@@ -20,6 +20,7 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
     private val json = Json { ignoreUnknownKeys = true }
+    private val TAG = NetworkModule::class.java.simpleName
 
     @Provides
     @Singleton
@@ -55,24 +56,28 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    @ApiKey // Custom qualifier if needed, simple string injection for now
+    @ApiKey
     fun provideApiKey(): String {
-        // Basic check - replace with proper validation/handling
-        val apiKey =
-            when (ApiServiceHost.getActive()) {
-                ApiServiceHost.ACCUWEATHER -> BuildConfig.ACCUWEATHER_API_KEY
-                ApiServiceHost.OPEN_WEATHER_MAP -> BuildConfig.OPEN_WEATHER_API_KEY
-            }
+        val apiKey = getActiveApiKey()
         if (apiKey.isBlank()) {
-            throw IllegalArgumentException(
-                "API Key is not set in BuildConfig. Please add it to your local.properties or gradle file.",
+            Log.w(
+                TAG,
+                "API Key (${ApiServiceHost.getActive().apiKeyConfigName}) is not set in BuildConfig. " +
+                    "Please add it to your local.properties file.",
             )
-        }
-        if (BuildConfig.DEBUG) {
-            Log.d("NetworkModule", "Using API Key: ...${apiKey.takeLast(4)}") // Avoid logging full key
+        } else if (BuildConfig.DEBUG) {
+            Log.d(TAG, "Using API Key: ...${apiKey.takeLast(4)}")
         }
         return apiKey
     }
+
+    fun getActiveApiKey(): String =
+        when (ApiServiceHost.getActive()) {
+            ApiServiceHost.ACCUWEATHER -> BuildConfig.ACCUWEATHER_API_KEY
+            ApiServiceHost.OPEN_WEATHER_MAP -> BuildConfig.OPEN_WEATHER_API_KEY
+        }
+
+    fun isApiKeyConfigured(): Boolean = getActiveApiKey().isNotBlank()
 
     @javax.inject.Qualifier
     @Retention(AnnotationRetention.BINARY)
