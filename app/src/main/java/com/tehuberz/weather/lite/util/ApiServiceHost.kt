@@ -1,17 +1,24 @@
 package com.tehuberz.weather.lite.util
 
 enum class ApiServiceHost(
+    val providerName: String,
     val baseUrl: String,
     val apiKeyConfigName: String,
+    val apiKeyPortalUrl: String,
     var isActive: Boolean = false,
 ) {
     ACCUWEATHER(
-        "https://dataservice.accuweather.com/",
-        "ACCUWEATHER_API_KEY",
+        providerName = "AccuWeather",
+        baseUrl = "https://dataservice.accuweather.com/",
+        apiKeyConfigName = "ACCUWEATHER_API_KEY",
+        apiKeyPortalUrl = "https://developer.accuweather.com/",
     ),
     OPEN_WEATHER_MAP(
-        "https://api.openweathermap.org/",
-        "OPEN_WEATHER_API_KEY",
+        providerName = "OpenWeather",
+        baseUrl = "https://api.openweathermap.org/",
+        apiKeyConfigName = "OPEN_WEATHER_API_KEY",
+        apiKeyPortalUrl = "https://openweathermap.org/api",
+        isActive = true,
     ),
     ;
 
@@ -21,6 +28,6 @@ enum class ApiServiceHost(
             host.isActive = true
         }
 
-        fun getActive(): ApiServiceHost = entries.first { it.isActive }
+        fun getActive(): ApiServiceHost = entries.firstOrNull { it.isActive } ?: OPEN_WEATHER_MAP
     }
 }

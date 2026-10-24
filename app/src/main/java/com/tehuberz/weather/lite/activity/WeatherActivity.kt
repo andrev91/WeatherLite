@@ -17,11 +17,14 @@ import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
+import com.tehuberz.weather.lite.network.NetworkModule
+import com.tehuberz.weather.lite.ui.screen.MissingApiKeyScreen
 import com.tehuberz.weather.lite.ui.screen.SettingsScreen
 import com.tehuberz.weather.lite.ui.screen.WeatherScreen
 import com.tehuberz.weather.lite.ui.theme.AdventureTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.serialization.Serializable
+import javax.inject.Inject
 
 @Serializable
 object WeatherRoute : NavKey
@@ -29,15 +32,30 @@ object WeatherRoute : NavKey
 @Serializable
 object SettingsRoute : NavKey
 
+@Serializable
+object MissingApiKeyRoute : NavKey
+
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    @Inject
+    @NetworkModule.ApiKey
+    lateinit var apiKey: String
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        val startRoute: NavKey =
+            if (apiKey.isNotBlank()) {
+                WeatherRoute
+            } else {
+                MissingApiKeyRoute
+            }
+
         setContent {
             AdventureTheme {
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    val backStack = rememberNavBackStack(WeatherRoute)
+                    val backStack = rememberNavBackStack(startRoute)
                     val customPopTransition: AnimatedContentTransitionScope<*>.() -> ContentTransform = {
                         slideInHorizontally(initialOffsetX = { -it }) togetherWith slideOutHorizontally(targetOffsetX = { it })
                     }
@@ -53,6 +71,9 @@ class MainActivity : ComponentActivity() {
                         predictivePopTransitionSpec = { _ -> customPopTransition() },
                         entryProvider =
                             entryProvider {
+                                entry<MissingApiKeyRoute> {
+                                    MissingApiKeyScreen()
+                                }
                                 entry<WeatherRoute> {
                                     WeatherScreen(
                                         onSettingsClick = { backStack.add(SettingsRoute) },
