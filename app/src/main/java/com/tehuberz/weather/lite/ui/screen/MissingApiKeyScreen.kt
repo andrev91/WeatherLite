@@ -64,7 +64,7 @@ fun MissingApiKeyScreen(
     ) { innerPadding ->
         MissingApiKeyScreenContent(
             modifier = Modifier.padding(innerPadding),
-            apiKeyConfigName = host.apiKeyConfigName,
+            host = host,
             onGetApiKeyClick = openPortalAction,
         )
     }
@@ -73,7 +73,7 @@ fun MissingApiKeyScreen(
 @Composable
 fun MissingApiKeyScreenContent(
     modifier: Modifier = Modifier,
-    apiKeyConfigName: String = ApiServiceHost.OPEN_WEATHER_MAP.apiKeyConfigName,
+    host: ApiServiceHost = ApiServiceHost.OPEN_WEATHER_MAP,
     onGetApiKeyClick: () -> Unit = {},
 ) {
     val scrollState = rememberScrollState()
@@ -95,13 +95,13 @@ fun MissingApiKeyScreenContent(
         )
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            text = stringResource(R.string.missing_api_key_title),
+            text = stringResource(R.string.missing_api_key_title, host.providerName),
             style = MaterialTheme.typography.headlineMedium,
             textAlign = TextAlign.Center,
         )
         Spacer(modifier = Modifier.height(12.dp))
         Text(
-            text = stringResource(R.string.missing_api_key_description),
+            text = stringResource(R.string.missing_api_key_description, host.providerName),
             style = MaterialTheme.typography.bodyLarge,
             textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -125,7 +125,7 @@ fun MissingApiKeyScreenContent(
                     style = MaterialTheme.typography.titleMedium,
                 )
                 Text(
-                    text = stringResource(R.string.missing_api_key_step_1),
+                    text = stringResource(R.string.missing_api_key_step_1, host.apiKeyPortalUrl),
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Text(
@@ -138,7 +138,7 @@ fun MissingApiKeyScreenContent(
                     shape = MaterialTheme.shapes.small,
                 ) {
                     Text(
-                        text = stringResource(R.string.missing_api_key_snippet, apiKeyConfigName),
+                        text = stringResource(R.string.missing_api_key_snippet, host.apiKeyConfigName),
                         style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
                         modifier = Modifier.padding(12.dp),
                     )
@@ -162,7 +162,7 @@ fun MissingApiKeyScreenContent(
                 modifier = Modifier.size(18.dp),
             )
             Spacer(modifier = Modifier.size(8.dp))
-            Text(text = stringResource(R.string.missing_api_key_get_key_button))
+            Text(text = stringResource(R.string.missing_api_key_get_key_button, host.providerName))
         }
     }
 }

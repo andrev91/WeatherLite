@@ -24,6 +24,7 @@ import com.tehuberz.weather.lite.ui.screen.WeatherScreen
 import com.tehuberz.weather.lite.ui.theme.AdventureTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.serialization.Serializable
+import javax.inject.Inject
 
 @Serializable
 object WeatherRoute : NavKey
@@ -36,12 +37,16 @@ object MissingApiKeyRoute : NavKey
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    @Inject
+    @NetworkModule.ApiKey
+    lateinit var apiKey: String
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
         val startRoute: NavKey =
-            if (NetworkModule.isApiKeyConfigured()) {
+            if (apiKey.isNotBlank()) {
                 WeatherRoute
             } else {
                 MissingApiKeyRoute

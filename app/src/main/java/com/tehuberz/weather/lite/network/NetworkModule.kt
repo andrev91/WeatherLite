@@ -58,7 +58,11 @@ object NetworkModule {
     @Singleton
     @ApiKey
     fun provideApiKey(): String {
-        val apiKey = getActiveApiKey()
+        val apiKey =
+            when (ApiServiceHost.getActive()) {
+                ApiServiceHost.ACCUWEATHER -> BuildConfig.ACCUWEATHER_API_KEY
+                ApiServiceHost.OPEN_WEATHER_MAP -> BuildConfig.OPEN_WEATHER_API_KEY
+            }
         if (apiKey.isBlank()) {
             Log.w(
                 TAG,
@@ -70,14 +74,6 @@ object NetworkModule {
         }
         return apiKey
     }
-
-    fun getActiveApiKey(): String =
-        when (ApiServiceHost.getActive()) {
-            ApiServiceHost.ACCUWEATHER -> BuildConfig.ACCUWEATHER_API_KEY
-            ApiServiceHost.OPEN_WEATHER_MAP -> BuildConfig.OPEN_WEATHER_API_KEY
-        }
-
-    fun isApiKeyConfigured(): Boolean = getActiveApiKey().isNotBlank()
 
     @javax.inject.Qualifier
     @Retention(AnnotationRetention.BINARY)
