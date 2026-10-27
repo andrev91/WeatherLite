@@ -268,6 +268,8 @@ fun WeatherScreenContent(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
+        val isLoading = uiState.isLoading
+
         Text(stringResource(R.string.weather_screen_open_weather_data_label), style = MaterialTheme.typography.headlineMedium)
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -280,6 +282,7 @@ fun WeatherScreenContent(
             searchQuery = uiState.locationState.stateSearchQuery,
             onSearchQueryChanged = { onDropdownSearch(LocationType.STATE, it) },
             isSelected = uiState.locationState.selectedState != null,
+            enabled = !isLoading,
             onOptionSelected = { onDropdownSelected(LocationType.STATE, it) },
         ) { it.name }
         Spacer(Modifier.height(8.dp))
@@ -293,11 +296,11 @@ fun WeatherScreenContent(
                 searchQuery = uiState.locationState.citySearchQuery,
                 onSearchQueryChanged = { onDropdownSearch(LocationType.CITY, it) },
                 isSelected = uiState.locationState.selectedCity != null,
+                enabled = !isLoading,
                 onOptionSelected = { onDropdownSelected(LocationType.CITY, it) },
             ) { it }
             Spacer(Modifier.height(16.dp))
         }
-        val isLoading = uiState.isLoading
         if (isLoading && uiState.weatherState.weatherContent == null) {
             WeatherLoadingOrb(
                 modifier = Modifier.testTag(TAG_PROGRESS).padding(8.dp),
