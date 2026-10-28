@@ -49,6 +49,7 @@ fun <T> SearchableDropDown(
     onClear: () -> Unit,
     isSelected: Boolean = false,
     initiallyExpanded: Boolean = false,
+    enabled: Boolean = true,
     initiallySearchMode: Boolean = false,
     optionToString: (T) -> String = { it.toString() },
 ) {
@@ -69,7 +70,9 @@ fun <T> SearchableDropDown(
         ExposedDropdownMenuBox(
             expanded = expanded,
             onExpandedChange = {
-                expanded = it
+                if (enabled) {
+                    expanded = it
+                }
             },
         ) {
             OutlinedTextField(
@@ -78,10 +81,11 @@ fun <T> SearchableDropDown(
                         .focusRequester(focusRequester)
                         .menuAnchor(
                             type = MenuAnchorType.PrimaryEditable,
-                            enabled = !isSearchMode,
+                            enabled = enabled && !isSearchMode,
                         ).fillMaxWidth()
                         .testTag(testTag),
                 value = searchQuery,
+                enabled = enabled,
                 readOnly = !isSearchMode,
                 onValueChange = {
                     onSearchQueryChanged(it)
@@ -91,7 +95,7 @@ fun <T> SearchableDropDown(
                 trailingIcon = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         if (isSelected) {
-                            IconButton(onClick = {
+                            IconButton(enabled = enabled, onClick = {
                                 onClear()
                                 expanded = false
                                 isSearchMode = false
@@ -102,7 +106,7 @@ fun <T> SearchableDropDown(
                             }
                         } else {
                             if (isSearchMode) {
-                                IconButton(onClick = {
+                                IconButton(enabled = enabled, onClick = {
                                     if (searchQuery.isNotEmpty()) {
                                         onSearchQueryChanged("")
                                     } else {
@@ -115,7 +119,7 @@ fun <T> SearchableDropDown(
                                     Icon(Icons.Filled.Clear, contentDescription = stringResource(R.string.cd_clear_search))
                                 }
                             } else {
-                                IconButton(onClick = {
+                                IconButton(enabled = enabled, onClick = {
                                     isSearchMode = true
                                     expanded = true
                                 }) {
@@ -124,7 +128,7 @@ fun <T> SearchableDropDown(
                             }
                             ExposedDropdownMenuDefaults.TrailingIcon(
                                 expanded = expanded,
-                                modifier = Modifier.menuAnchor(MenuAnchorType.SecondaryEditable, true),
+                                modifier = Modifier.menuAnchor(MenuAnchorType.SecondaryEditable, enabled),
                             )
                         }
                     }
